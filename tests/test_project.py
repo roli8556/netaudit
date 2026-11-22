@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig
 
 
@@ -39,6 +40,24 @@ def test_different_projects_are_not_equal() -> None:
     bank = Project(Path("bank"), ProjectConfig("bank"))
     school = Project(Path("school"), ProjectConfig("school"))
     assert bank != school
+
+
+def test_projects_do_not_share_hosts() -> None:
+    """A host added to one project doesn't appear in another."""
+    bank = Project(Path("bank"), ProjectConfig("bank"))
+    school = Project(Path("school"), ProjectConfig("school"))
+    host = Host("192.0.2.11", "core", "auditor", "fake-login")
+    bank.hosts.append(host)
+    assert bank.hosts == [host]
+    assert school.hosts == []
+
+
+def test_printing_a_project_hides_host_passwords() -> None:
+    """Printing a whole project doesn't leak the passwords inside it."""
+    project = Project(Path("office"), ProjectConfig("office"))
+    project.hosts.append(Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable"))
+    assert "fake-login" not in repr(project)
+    assert "fake-enable" not in repr(project)
 
 
 def test_save_writes_the_config_as_json(tmp_path: Path) -> None:

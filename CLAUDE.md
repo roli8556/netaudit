@@ -85,7 +85,7 @@ Update this section in the commit of every step.
 
 ### In progress: Milestone 1, encrypted projects
 Goal: start netaudit, create or load an encrypted project from a menu, add and show devices.
-- [ ] A. Project model: Project, ProjectConfig, log and devices, validation, conversion for saving
+- [ ] A. Project model: Project, ProjectConfig, log and hosts, validation, conversion for saving
 - [ ] B. Encryption (`netaudit/encryption.py`): key from the password, encrypt and decrypt
 - [ ] C. Project files (`netaudit/project.py`): keep them out of Git, check paths, create, save, load
 - [ ] D. Menu (`netaudit/menu.py`): create, load, show and add devices
@@ -105,6 +105,6 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: Host class
+- Last finished step: Project has a list of hosts
 - Temporary: save writes plain JSON. It must be encrypted in part B, before it is used with a real network.
-- Next step: 1.2, the log classes
+- Next step (proposed): part B, encryption, which hosts.enc depends on. The log and validation also remain.

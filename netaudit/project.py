@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from datetime import datetime
 
+from netaudit.host import Host
+
 
 def current_timestamp() -> str:
     """Return the current local time as text."""
@@ -44,3 +46,4 @@ class Project:
 
     path: Path
     config: ProjectConfig
+    hosts: list[Host] = field(default_factory=list)
