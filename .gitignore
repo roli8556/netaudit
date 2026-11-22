@@ -221,3 +221,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# netaudit: device configs, inventories and reports
+/projects/
+
+# Claude Code: local settings
+.claude/settings.local.json
