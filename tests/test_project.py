@@ -240,13 +240,10 @@ def test_save_hosts_keeps_passwords_in_memory(created: Project, host: Host) -> N
     assert host.enable_password == "fake-enable"
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="create overwrites an existing project")
 def test_create_does_not_overwrite_a_project(created: Project) -> None:
     """Creating where a project already exists leaves that project intact."""
-    try:
+    with pytest.raises(FileExistsError):
         Project(created.path, ProjectConfig("school")).create_project()
-    except FileExistsError:
-        pass
     assert ProjectConfig.load(created.path / "config.json").name == "bank"
 
 

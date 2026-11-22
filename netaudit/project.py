@@ -90,11 +90,13 @@ class Project:
                     self.scans.append(scan)
 
     def create_project(self) -> None:
-        """Create the project directory, subdirectories, and save the configuration file."""
-        self.path.mkdir(parents=True, exist_ok=True)
-        (self.path / "logs").mkdir(exist_ok=True)
-        (self.path / "configs").mkdir(exist_ok=True)
-        (self.path / "scans").mkdir(exist_ok=True)
+        """Create the project directory, subdirectories, and save the configuration file.
+
+        Raises FileExistsError if the directory already exists."""
+        self.path.mkdir(parents=True)
+        (self.path / "logs").mkdir()
+        (self.path / "configs").mkdir()
+        (self.path / "scans").mkdir()
         config_path = self.path / "config.json"
         self.config.save(config_path)
     def load_project(self) -> None:
