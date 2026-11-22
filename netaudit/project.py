@@ -71,6 +71,8 @@ class Project:
         if hosts_path.exists():
             text = hosts_path.read_text(encoding="utf-8")
             data = json.loads(text)
+            if not isinstance(data, list):
+                raise ValueError(f"{hosts_path} does not contain a list of hosts")
             # passwords aren't saved until part B, so they start out empty
             self.hosts = [Host(**host_data, password="") for host_data in data]
         else:

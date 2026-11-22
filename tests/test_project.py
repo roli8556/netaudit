@@ -302,15 +302,12 @@ def test_load_scans_ignores_other_json_files(created: Project) -> None:
     assert created.scans == []
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="{} is accepted as an empty host list")
-def test_load_hosts_rejects_json_that_is_not_a_list(created: Project) -> None:
+@pytest.mark.parametrize("content", ["{}", '""', "5", "null"])
+def test_load_hosts_rejects_json_that_is_not_a_list(created: Project, content: str) -> None:
     """Valid JSON of the wrong shape is an error."""
-    (created.path / "hosts.json").write_text("{}", encoding="utf-8")
-    try:
+    (created.path / "hosts.json").write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError):
         created.load_hosts()
-    except ValueError:
-        return
-    assert False, "{} was accepted"
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError, reason="a failed load leaves two projects mixed")
