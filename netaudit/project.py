@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from netaudit.host import Host
-from netaudit.scans.scans import Scan, find_scan_class
+from netaudit.scans.scans import SCAN_TYPES, Scan
 
 
 def current_timestamp() -> str:
@@ -82,7 +82,9 @@ class Project:
             scan_type = data.pop("type")
             performed_at = datetime.fromisoformat(data.pop("performed_at"))
             data["path"] = scan_file  # never trust a path from inside the file
-            scan_class = find_scan_class(scan_type)
+            if scan_type not in SCAN_TYPES:
+                raise ValueError(f"Unknown scan type {scan_type!r} in {scan_file}")
+            scan_class = SCAN_TYPES[scan_type]
             scans.append(scan_class(performed_at=performed_at, **data))
         self.scans = scans
 

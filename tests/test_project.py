@@ -11,7 +11,7 @@ import pytest
 from netaudit import project as project_module
 from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig
-from netaudit.scans.scans import Scan
+from netaudit.scans.scans import SCAN_TYPES, Scan
 
 
 def test_config_has_default_settings() -> None:
@@ -130,6 +130,12 @@ def created(tmp_path: Path) -> Project:
     project = Project(tmp_path / "bank", ProjectConfig("bank"))
     project.create_project()
     return project
+
+
+@pytest.fixture(autouse=True)
+def known_fake_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the fake scan a known type, only while each test runs."""
+    monkeypatch.setitem(SCAN_TYPES, "FakeHostScan", FakeHostScan)
 
 
 @pytest.fixture
