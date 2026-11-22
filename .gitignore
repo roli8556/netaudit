@@ -233,3 +233,9 @@ __marimo__/
 
 # netaudit: scan results (not scans/, that would also ignore the source code)
 *.scan.json
+
+# netaudit: plain-text project files, until they are encrypted
+config.json
+config.json.tmp
+hosts.json
+hosts.json.tmp
