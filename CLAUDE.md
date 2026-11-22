@@ -85,19 +85,24 @@ Update this section in the commit of every step.
 
 ### In progress: Milestone 1, encrypted projects
 Goal: start netaudit, create or load an encrypted project from a menu, add and show devices.
-- [ ] A. Project model (`netaudit/project.py`): Device and Project, validation, conversion for saving
+- [ ] A. Project model: Project, ProjectConfig, log and devices, validation, conversion for saving
 - [ ] B. Encryption (`netaudit/encryption.py`): key from the password, encrypt and decrypt
-- [ ] C. Storage (`netaudit/storage.py`): keep project files out of Git, check paths, save, load
+- [ ] C. Project files (`netaudit/project.py`): keep them out of Git, check paths, create, save, load
 - [ ] D. Menu (`netaudit/menu.py`): create, load, show and add devices
 - [ ] E. Recent projects: remember paths, pick one when loading
 
+### Decided
+- A project is a folder with different kinds of files (config, device configs, topology, log, ...), all encrypted.
+- JSON for most files, inside the encryption.
+- `project.py` handles creating and loading projects. `Device` does not live in it.
+- Key from the password: Argon2id. Encryption: Fernet.
+- Passwords: at least 12 characters, no recovery.
+
 ### Not decided yet
-- File format inside the encryption (proposed: JSON)
-- Password to key (proposed: Argon2id)
-- Encryption (proposed: Fernet)
-- Password rules (proposed: at least 12 characters, no recovery)
+- Log classes in `netaudit/log.py` (proposed: LogEntry, and a ProjectLog attached to Project)
+- Where Device lives (proposed: `netaudit/device.py`)
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: 1.0, plan written down
-- Next step: 1.1, the Device dataclass
+- Last finished step: 1.1, Project and ProjectConfig
+- Next step: 1.2, the log classes
