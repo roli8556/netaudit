@@ -108,7 +108,7 @@ Order: structure first (A, C, D), encryption (B) after that.
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: load_hosts only accepts a list
+- Last finished step: load_project returns a new Project, so a failed load changes nothing
 - Temporary: config, hosts and scans are saved as plain JSON. All must be encrypted in part B, before use with a real network.
 - Until part B, hosts.json has no passwords: they are empty after loading.
-- Next step (proposed): ignore plain-text project files in Git, then Project create and load. The log and validation also remain.
+- Next step (proposed): validate what is typed in or loaded from files, then the log, then the menu.

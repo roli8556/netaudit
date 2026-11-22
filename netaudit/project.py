@@ -102,10 +102,15 @@ class Project:
         (self.path / "scans").mkdir()
         config_path = self.path / "config.json"
         self.config.save(config_path)
-    def load_project(self) -> None:
-        """Load the project configuration file and any other data."""
-        config_path = self.path / "config.json"
-        self.config = ProjectConfig.load(config_path)
-        self.load_hosts()
-        self.load_scans()
+
+    @staticmethod
+    def load_project(path: Path) -> "Project":
+        """Return the project stored in path, with its configuration and any other data.
+
+        If any part can't be loaded this raises, and no project is returned."""
+        config = ProjectConfig.load(path / "config.json")
+        project = Project(path, config)
+        project.load_hosts()
+        project.load_scans()
+        return project
 

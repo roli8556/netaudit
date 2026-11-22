@@ -205,8 +205,7 @@ def test_load_project_restores_config_hosts_and_scans(created: Project, host: Ho
     scan = Scan()
     scan.write(created.path / "scans")
 
-    loaded = Project(created.path, ProjectConfig("placeholder"))
-    loaded.load_project()
+    loaded = Project.load_project(created.path)
     assert loaded.config == created.config
     assert loaded.hosts == [without_passwords(host)]
     assert [s.performed_at for s in loaded.scans] == [scan.performed_at]
@@ -214,13 +213,8 @@ def test_load_project_restores_config_hosts_and_scans(created: Project, host: Ho
 
 def test_load_missing_project_raises(tmp_path: Path) -> None:
     """A folder that doesn't exist can't be loaded."""
-    project = Project(tmp_path / "missing", ProjectConfig("office"))
     with pytest.raises(FileNotFoundError):
-        project.load_project()
-
-
-# Known bugs. These are expected to fail (xfail). When one is fixed pytest reports it
-# as a failure because of strict=True, which is the signal to remove its marker.
+        Project.load_project(tmp_path / "missing")
 
 
 def test_saved_hosts_do_not_expose_passwords(created: Project, host: Host) -> None:
@@ -310,15 +304,14 @@ def test_load_hosts_rejects_json_that_is_not_a_list(created: Project, content: s
         created.load_hosts()
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="a failed load leaves two projects mixed")
-def test_failed_load_changes_nothing(created: Project, tmp_path: Path) -> None:
+def test_failed_load_changes_nothing(created: Project, host: Host, tmp_path: Path) -> None:
     """If any part can't be loaded, the open project is left as it was."""
     broken = Project(tmp_path / "school", ProjectConfig("school"))
     broken.create_project()
     (broken.path / "hosts.json").write_text("broken", encoding="utf-8")
-    created.path = broken.path
-    try:
-        created.load_project()
-    except ValueError:
-        pass
+    created.hosts = [host]
+    with pytest.raises(ValueError):
+        created.load_project(broken.path)
+    assert created.path == tmp_path / "bank"
     assert created.config.name == "bank"
+    assert created.hosts == [host]
