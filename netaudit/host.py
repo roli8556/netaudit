@@ -9,7 +9,8 @@ class Host:
 
     ip: str
     hostname: str
-    username: str
+    ssh_username: str
     # repr=False keeps secrets out of print(), logs and error messages
-    password: str = field(repr=False)
+    ssh_password: str = field(repr=False)
     enable_password: str | None = field(default=None, repr=False)
+    privilege_level: int = 1  # what the SSH user gets at login (0-15), 1 is the Cisco default

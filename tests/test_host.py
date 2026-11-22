@@ -5,12 +5,20 @@ from netaudit.host import Host
 
 def test_host_stores_its_fields() -> None:
     """A host keeps everything it was given."""
-    host = Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable")
+    host = Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable", 15)
     assert host.ip == "192.0.2.11"
     assert host.hostname == "core"
-    assert host.username == "auditor"
-    assert host.password == "fake-login"
+    assert host.ssh_username == "auditor"
+    assert host.ssh_password == "fake-login"
     assert host.enable_password == "fake-enable"
+    assert host.privilege_level == 15
+
+
+def test_privilege_level_defaults_to_1() -> None:
+    """A host gets the lowest normal level unless told otherwise."""
+    host = Host("192.0.2.11", "core", "auditor", "fake-login")
+    assert host.privilege_level == 1
+    assert "privilege_level=1" in repr(host)
 
 
 def test_enable_password_is_optional() -> None:

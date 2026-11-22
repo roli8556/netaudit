@@ -153,7 +153,7 @@ def test_create_makes_the_folders_and_config(created: Project) -> None:
 
 def test_hosts_survive_save_and_load(created: Project, host: Host) -> None:
     """All fields are restored, also the passwords and a missing enable password."""
-    no_enable = Host("192.0.2.12", "access", "auditor", "fake-login")
+    no_enable = Host("192.0.2.12", "access", "auditor", "fake-login", privilege_level=15)
     created.hosts = [host, no_enable]
     created.save_hosts()
     created.hosts = []

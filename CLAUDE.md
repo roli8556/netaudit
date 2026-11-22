@@ -97,7 +97,8 @@ Order: structure first (A, C, D), encryption (B) after that.
 - JSON for most files, inside the encryption.
 - `project.py` handles creating and loading projects.
 - In a project folder, `config.json` holds the project's own settings and `configs/` holds the devices' running configs.
-- `host.py` defines Host: ip, hostname, SSH username, password and optional enable password.
+- `host.py` defines Host: ip, hostname, ssh_username, ssh_password, optional enable_password and privilege_level
+  (the SSH user's level at login, default 1). The level is not a write protection: read-only by default still applies.
 - Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included.
 - Temporary exception to "never store passwords in plain text", decided by me: until part B, `hosts.json` holds
   the passwords in plain text. It is ignored by Git. Encryption comes after the structure.
@@ -112,6 +113,6 @@ Order: structure first (A, C, D), encryption (B) after that.
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: scan types are looked up in SCAN_TYPES
+- Last finished step: Host has ssh_ field names and a privilege level
 - Temporary: config, hosts and scans are saved as plain JSON. All must be encrypted in part B, before use with a real network.
 - Next step (proposed): validate what is typed in or loaded from files, then the log, then the menu.
