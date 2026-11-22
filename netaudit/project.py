@@ -52,14 +52,9 @@ class Project:
     #TO ADD: logging object, encryption handler.
 
     def save_hosts(self) -> None:
-        """Save the hosts, without their passwords, to a JSON file in the project directory."""
+        """Save the hosts, including their passwords, to a JSON file in the project directory."""
         hosts_path = self.path / "hosts.json"
-        data = [asdict(host) for host in self.hosts]
-        for host_data in data:
-            # TODO: save the passwords too, once the file is encrypted (part B)
-            del host_data["password"]
-            del host_data["enable_password"]
-        text = json.dumps(data, indent=4)
+        text = json.dumps([asdict(host) for host in self.hosts], indent=4)
         temp_path = hosts_path.with_name(hosts_path.name + ".tmp")
         temp_path.write_text(text, encoding="utf-8")
         temp_path.replace(hosts_path)
@@ -73,8 +68,7 @@ class Project:
             data = json.loads(text)
             if not isinstance(data, list):
                 raise ValueError(f"{hosts_path} does not contain a list of hosts")
-            # passwords aren't saved until part B, so they start out empty
-            self.hosts = [Host(**host_data, password="") for host_data in data]
+            self.hosts = [Host(**host_data) for host_data in data]
         else:
             self.hosts = []
     def load_scans(self) -> None:

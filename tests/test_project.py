@@ -138,11 +138,6 @@ def host() -> Host:
     return Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable")
 
 
-def without_passwords(host: Host) -> Host:
-    """The host as it looks after saving and loading."""
-    return Host(host.ip, host.hostname, host.username, password="")
-
-
 def test_create_makes_the_folders_and_config(created: Project) -> None:
     """A new project has its folders and a saved config."""
     for folder in ("logs", "configs", "scans"):
@@ -151,13 +146,13 @@ def test_create_makes_the_folders_and_config(created: Project) -> None:
 
 
 def test_hosts_survive_save_and_load(created: Project, host: Host) -> None:
-    """Everything but the passwords is restored."""
+    """All fields are restored, also the passwords and a missing enable password."""
     no_enable = Host("192.0.2.12", "access", "auditor", "fake-login")
     created.hosts = [host, no_enable]
     created.save_hosts()
     created.hosts = []
     created.load_hosts()
-    assert created.hosts == [without_passwords(host), without_passwords(no_enable)]
+    assert created.hosts == [host, no_enable]
 
 
 def test_load_hosts_without_a_file_gives_no_hosts(created: Project, host: Host) -> None:
@@ -173,7 +168,7 @@ def test_load_hosts_twice_does_not_duplicate(created: Project, host: Host) -> No
     created.save_hosts()
     created.load_hosts()
     created.load_hosts()
-    assert created.hosts == [without_passwords(host)]
+    assert created.hosts == [host]
 
 
 def test_load_hosts_rejects_broken_json(created: Project) -> None:
@@ -207,7 +202,7 @@ def test_load_project_restores_config_hosts_and_scans(created: Project, host: Ho
 
     loaded = Project.load_project(created.path)
     assert loaded.config == created.config
-    assert loaded.hosts == [without_passwords(host)]
+    assert loaded.hosts == [host]
     assert [s.performed_at for s in loaded.scans] == [scan.performed_at]
 
 
@@ -217,6 +212,7 @@ def test_load_missing_project_raises(tmp_path: Path) -> None:
         Project.load_project(tmp_path / "missing")
 
 
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason="not encrypted until part B")
 def test_saved_hosts_do_not_expose_passwords(created: Project, host: Host) -> None:
     """No file in the project contains a readable password."""
     created.hosts = [host]
@@ -225,14 +221,6 @@ def test_saved_hosts_do_not_expose_passwords(created: Project, host: Host) -> No
         if file.is_file():
             assert b"fake-login" not in file.read_bytes()
             assert b"fake-enable" not in file.read_bytes()
-
-
-def test_save_hosts_keeps_passwords_in_memory(created: Project, host: Host) -> None:
-    """Saving only leaves the passwords out of the file, not out of the open project."""
-    created.hosts = [host]
-    created.save_hosts()
-    assert host.password == "fake-login"
-    assert host.enable_password == "fake-enable"
 
 
 def test_create_does_not_overwrite_a_project(created: Project) -> None:

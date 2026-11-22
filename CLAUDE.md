@@ -97,7 +97,9 @@ Order: structure first (A, C, D), encryption (B) after that.
 - JSON for most files, inside the encryption.
 - `project.py` handles creating and loading projects.
 - `host.py` defines Host: ip, hostname, SSH username, password and optional enable password.
-- Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included. Never save passwords unencrypted.
+- Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included.
+- Temporary exception to "never store passwords in plain text", decided by me: until part B, `hosts.json` holds
+  the passwords in plain text. It is ignored by Git. Encryption comes after the structure.
 - `scans/scans.py` defines Scan, the base class of all scans: time performed and `write`. Subclasses add the data.
 - A scan stores host IPs, never Host objects (they contain passwords).
 - Key from the password: Argon2id. Encryption: Fernet.
@@ -108,7 +110,6 @@ Order: structure first (A, C, D), encryption (B) after that.
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: load_project returns a new Project, so a failed load changes nothing
+- Last finished step: hosts are saved with their passwords
 - Temporary: config, hosts and scans are saved as plain JSON. All must be encrypted in part B, before use with a real network.
-- Until part B, hosts.json has no passwords: they are empty after loading.
 - Next step (proposed): validate what is typed in or loaded from files, then the log, then the menu.
