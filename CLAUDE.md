@@ -15,6 +15,9 @@ It is a learning project with two goals:
 - netaudit must be deployable to any Cisco network, so nothing in it is specific to one network.
 - The user creates and loads projects. Each network is one project, stored on disk.
 - Projects are password protected and encrypted on disk.
+- netaudit is menu driven: on start, the user creates or loads a project.
+- Creating requires a name, a location and a new password. Loading requires a path and the password.
+- Recently used project paths are remembered in plain text (paths only, never passwords).
 - My own lab is just another project. Nothing specific to it is committed to this public repo.
 
 ## How we work (follow this strictly)
@@ -75,4 +78,26 @@ tested and committed before the next.
 10. SNMP / traffic analysis.
 
 ## Current status
-Milestone 0 is done. Milestone 1 is next.
+Update this section in the commit of every step.
+
+### Done
+- Milestone 0: project skeleton (venv, .gitignore, main.py, pytest, tests folder).
+
+### In progress: Milestone 1, encrypted projects
+Goal: start netaudit, create or load an encrypted project from a menu, add and show devices.
+- [ ] A. Project model (`netaudit/project.py`): Device and Project, validation, conversion for saving
+- [ ] B. Encryption (`netaudit/encryption.py`): key from the password, encrypt and decrypt
+- [ ] C. Storage (`netaudit/storage.py`): keep project files out of Git, check paths, save, load
+- [ ] D. Menu (`netaudit/menu.py`): create, load, show and add devices
+- [ ] E. Recent projects: remember paths, pick one when loading
+
+### Not decided yet
+- File format inside the encryption (proposed: JSON)
+- Password to key (proposed: Argon2id)
+- Encryption (proposed: Fernet)
+- Password rules (proposed: at least 12 characters, no recovery)
+
+### Right now
+- Branch: `feature/project-model`
+- Last finished step: 1.0, plan written down
+- Next step: 1.1, the Device dataclass
