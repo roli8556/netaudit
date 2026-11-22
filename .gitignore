@@ -227,3 +227,6 @@ __marimo__/
 
 # Claude Code: local settings
 .claude/settings.local.json
+
+# Claude Code: private instructions (personal and lab details)
+/CLAUDE.local.md
