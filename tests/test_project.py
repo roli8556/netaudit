@@ -3,6 +3,7 @@
 import json
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -267,7 +268,6 @@ def test_scan_file_cannot_call_other_functions(
     assert calls == []
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="load_scans appends to the old list")
 def test_load_scans_twice_does_not_duplicate(created: Project) -> None:
     """Loading replaces the list of scans."""
     Scan().write(created.path / "scans")
@@ -276,7 +276,6 @@ def test_load_scans_twice_does_not_duplicate(created: Project) -> None:
     assert len(created.scans) == 1
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="path is read from the file's contents")
 def test_loaded_scan_path_is_the_file_it_came_from(created: Project) -> None:
     """A scan file can't claim to be located somewhere else."""
     content = {"type": "Scan", "performed_at": "2026-01-02T03:04:05", "path": "somewhere/else"}
@@ -286,7 +285,16 @@ def test_loaded_scan_path_is_the_file_it_came_from(created: Project) -> None:
     assert created.scans[0].path == file
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason="every .json file is treated as a scan")
+def test_load_scans_returns_oldest_first(created: Project) -> None:
+    """Scans are in the order they were performed."""
+    older = FakeHostScan("192.0.2.11", performed_at=datetime(2025, 1, 1))
+    newer = Scan(performed_at=datetime(2026, 1, 1))
+    newer.write(created.path / "scans")
+    older.write(created.path / "scans")
+    created.load_scans()
+    assert created.scans == [older, newer]
+
+
 def test_load_scans_ignores_other_json_files(created: Project) -> None:
     """Only *.scan.json files are scans."""
     (created.path / "scans" / "notes.json").write_text("{}", encoding="utf-8")

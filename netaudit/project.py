@@ -78,16 +78,17 @@ class Project:
     def load_scans(self) -> None:
         """Load the scans from the scans directory in the project directory."""
         scans_path = self.path / "scans"
-        if scans_path.exists():
-            for scan_file in scans_path.iterdir():
-                if scan_file.suffix == ".json":
-                    text = scan_file.read_text(encoding="utf-8")
-                    data = json.loads(text)
-                    scan_type = data.pop("type")
-                    performed_at = datetime.fromisoformat(data.pop("performed_at"))
-                    scan_class = find_scan_class(scan_type)
-                    scan = scan_class(performed_at=performed_at, **data)
-                    self.scans.append(scan)
+        scans = []
+        # sorted by file name means oldest first, as the name starts with the time
+        for scan_file in sorted(scans_path.glob("*.scan.json")):
+            text = scan_file.read_text(encoding="utf-8")
+            data = json.loads(text)
+            scan_type = data.pop("type")
+            performed_at = datetime.fromisoformat(data.pop("performed_at"))
+            data["path"] = scan_file  # never trust a path from inside the file
+            scan_class = find_scan_class(scan_type)
+            scans.append(scan_class(performed_at=performed_at, **data))
+        self.scans = scans
 
     def create_project(self) -> None:
         """Create the project directory, subdirectories, and save the configuration file.
