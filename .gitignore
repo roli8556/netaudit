@@ -239,3 +239,6 @@ config.json
 config.json.tmp
 hosts.json
 hosts.json.tmp
+
+# netaudit: running configs of devices, in a project folder anywhere in the repo
+configs/
