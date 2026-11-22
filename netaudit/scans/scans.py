@@ -1,4 +1,4 @@
-"""Base class for all scans."""
+"""Scan data structures and serialization."""
 
 import json
 from dataclasses import asdict, dataclass, field
@@ -8,8 +8,7 @@ from pathlib import Path
 
 @dataclass(kw_only=True)
 class Scan:
-    """What all scans have in common. Each kind of scan is a subclass."""
-
+    """A Base class for all scans"""
     # Subclasses must store host IPs, never Host objects: asdict would write out their passwords
     performed_at: datetime = field(default_factory=datetime.now)
     path: Path | None = None  # where the scan was written, if it was written to disk
