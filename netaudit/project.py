@@ -1,6 +1,7 @@
 """Project handling, including creation, loading and deletion."""
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from datetime import datetime
 
@@ -17,6 +18,14 @@ class ProjectConfig:
     ssh_port: int = 22
     ssh_timeout: int = 10
     created_time: str = field(default_factory=current_timestamp)
+
+    def save(self, path: Path) -> None:
+        """Save or create a new project configuration file in JSON format."""
+        # TODO: encrypt before writing (part B), this is plain text for now
+        text = json.dumps(asdict(self), indent=4)
+        temp_path = path.with_name(path.name + ".tmp")
+        temp_path.write_text(text, encoding="utf-8")
+        temp_path.replace(path)
 
 
 
