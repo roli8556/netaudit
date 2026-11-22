@@ -62,7 +62,7 @@ tested and committed before the next.
 
 ## Roadmap (one milestone at a time, each split into small steps)
 0. Project skeleton: virtual environment, folder structure, .gitignore, pytest, a main.py that runs.
-1. Projects: create/load a project folder (config file + list of devices). No passwords on disk.
+1. Projects: create/load a password-protected, encrypted project (config + list of devices). No plain-text passwords on disk.
 2. Connect over SSH to ONE device and print `show version`.
 3. Collect from all devices in a project and save the running configs in the project folder.
 4. Parse ONE show command into Python objects.
