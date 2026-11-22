@@ -66,3 +66,21 @@ def test_write_to_missing_project_raises(tmp_path: Path) -> None:
     """Write creates the scans folder, but not a missing project above it."""
     with pytest.raises(FileNotFoundError):
         Scan().write(tmp_path / "missing" / "scans")
+
+
+def test_new_scan_has_no_path() -> None:
+    """A scan that hasn't been written isn't located anywhere."""
+    assert Scan().path is None
+
+
+def test_write_remembers_the_path(tmp_path: Path) -> None:
+    """After writing, the scan knows where it is."""
+    scan = Scan()
+    path = scan.write(tmp_path)
+    assert scan.path == path
+
+
+def test_scan_with_a_path_can_be_written(tmp_path: Path) -> None:
+    """A scan that knows its path can still be written."""
+    scan = Scan(path=tmp_path / "earlier.scan.json")
+    assert scan.write(tmp_path).is_file()

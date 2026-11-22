@@ -108,7 +108,7 @@ Order: structure first (A, C, D), encryption (B) after that.
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: Project has a list of scans
+- Last finished step: a Scan knows the path it was written to
 - Temporary: ProjectConfig.save and Scan.write produce plain JSON. Both must be encrypted in part B, before use with a real network.
 - Until part B, hosts are kept in memory only.
 - Next step (proposed): ignore plain-text project files in Git, then Project create and load. The log and validation also remain.
