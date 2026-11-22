@@ -85,10 +85,11 @@ Update this section in the commit of every step.
 
 ### In progress: Milestone 1, encrypted projects
 Goal: start netaudit, create or load an encrypted project from a menu, add and show devices.
-- [ ] A. Project model: Project, ProjectConfig, log and hosts, validation, conversion for saving
-- [ ] B. Encryption (`netaudit/encryption.py`): key from the password, encrypt and decrypt
+Order: structure first (A, C, D), encryption (B) after that.
+- [ ] A. Project model: Project, ProjectConfig, log, hosts and scans, validation, conversion for saving
 - [ ] C. Project files (`netaudit/project.py`): keep them out of Git, check paths, create, save, load
 - [ ] D. Menu (`netaudit/menu.py`): create, load, show and add devices
+- [ ] B. Encryption (`netaudit/encryption.py`): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### Decided
@@ -107,6 +108,7 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: Scan base class
-- Temporary: save writes plain JSON. It must be encrypted in part B, before it is used with a real network.
-- Next step (proposed): part B, encryption, which hosts.enc depends on. The log and validation also remain.
+- Last finished step: Project has a list of scans
+- Temporary: ProjectConfig.save and Scan.write produce plain JSON. Both must be encrypted in part B, before use with a real network.
+- Until part B, hosts are kept in memory only.
+- Next step (proposed): ignore plain-text project files in Git, then Project create and load. The log and validation also remain.

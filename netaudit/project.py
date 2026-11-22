@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from netaudit.host import Host
+from netaudit.scans.scans import Scan
 
 
 def current_timestamp() -> str:
@@ -47,3 +48,4 @@ class Project:
     path: Path
     config: ProjectConfig
     hosts: list[Host] = field(default_factory=list)
+    scans: list[Scan] = field(default_factory=list)

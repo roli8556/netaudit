@@ -9,6 +9,7 @@ import pytest
 
 from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig
+from netaudit.scans.scans import Scan
 
 
 def test_config_has_default_settings() -> None:
@@ -50,6 +51,16 @@ def test_projects_do_not_share_hosts() -> None:
     bank.hosts.append(host)
     assert bank.hosts == [host]
     assert school.hosts == []
+
+
+def test_projects_do_not_share_scans() -> None:
+    """A scan added to one project doesn't appear in another."""
+    bank = Project(Path("bank"), ProjectConfig("bank"))
+    school = Project(Path("school"), ProjectConfig("school"))
+    scan = Scan()
+    bank.scans.append(scan)
+    assert bank.scans == [scan]
+    assert school.scans == []
 
 
 def test_printing_a_project_hides_host_passwords() -> None:
