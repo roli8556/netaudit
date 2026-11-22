@@ -96,6 +96,7 @@ Order: structure first (A, C, D), encryption (B) after that.
 - A project is a folder with different kinds of files (config, device configs, topology, log, ...), all encrypted.
 - JSON for most files, inside the encryption.
 - `project.py` handles creating and loading projects.
+- In a project folder, `config.json` holds the project's own settings and `configs/` holds the devices' running configs.
 - `host.py` defines Host: ip, hostname, SSH username, password and optional enable password.
 - Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included.
 - Temporary exception to "never store passwords in plain text", decided by me: until part B, `hosts.json` holds
