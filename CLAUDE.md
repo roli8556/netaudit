@@ -80,47 +80,87 @@ tested and committed before the next.
 ## Current status
 Update this section in the commit of every step.
 
+### Start here next session
+- Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
+- Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
+  Expected: 52 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: the Host class has its fields, and projects can be created, saved and loaded.
+- Next step (proposed, not yet OK'd): validation, starting with the IP check in Host. Then the log, then the menu.
+- First ask about the open design question on `load_project` below.
+
+### Temporary exception to the security requirements (decided by me)
+- Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
+  Don't undo this and don't bring encryption forward: structure comes first.
+- Don't use it with a real network until part B is done.
+- These files are ignored by Git by name: `config.json`, `hosts.json`, their `.tmp`, `*.scan.json`, `configs/`.
+
 ### Done
 - Milestone 0: project skeleton (venv, .gitignore, main.py, pytest, tests folder).
 
 ### In progress: Milestone 1, encrypted projects
-Goal: start netaudit, create or load an encrypted project from a menu, add and show devices.
-Order: structure first (A, C, D), encryption (B) after that.
-- [ ] A. Project model: Project, ProjectConfig, log, hosts and scans, validation, conversion for saving
-- [ ] C. Project files (`netaudit/project.py`): keep them out of Git, check paths, create, save, load
-- [ ] D. Menu (`netaudit/menu.py`): create, load, show and add devices
-- [ ] B. Encryption (`netaudit/encryption.py`): key from the password, encrypt and decrypt
+Goal: start netaudit, create or load an encrypted project from a menu, add and show hosts.
+Order: A, C, D (structure), then B (encryption), then E.
+- [ ] A. Project model
+  - [x] Project, ProjectConfig, Host, Scan base class
+  - [ ] Validation
+  - [ ] Log
+- [ ] C. Project files
+  - [x] Create without overwriting, save and load config and hosts, write and load scans
+  - [ ] Check paths, clear errors for damaged files
+- [ ] D. Menu (`netaudit/menu.py`, doesn't exist yet): create, load, show, add and remove hosts
+- [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
+### The code today
+- `main.py`: only prints the name. It will only start the menu.
+- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans; create, save, load).
+- `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
+- `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
+- `netaudit/log.py`: empty.
+
+### A project on disk (can be anywhere)
+- `config.json`: the project's own settings.
+- `hosts.json`: the hosts, becomes `hosts.enc`.
+- `configs/`: running configs of the devices. Not the project's settings.
+- `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.json`, never overwritten.
+- `logs/`: for the log.
+- Later more, for example topology.
+
 ### Decided
-- A project is a folder with different kinds of files (config, device configs, topology, log, ...), all encrypted.
-- JSON for most files, inside the encryption.
-- `project.py` handles creating and loading projects.
-- In a project folder, `config.json` holds the project's own settings and `configs/` holds the devices' running configs.
-- `host.py` defines Host: ip, hostname, ssh_username, ssh_password, optional enable_password and privilege_level
-  (the SSH user's level at login, default 1). The level is not a write protection: read-only by default still applies.
-- `Host.available_commands` lists what the login can run (None = not checked). It is information only: the commands
+- All project files will be encrypted. JSON for most of them, inside the encryption.
+- Key from the password: Argon2id. Encryption: Fernet. One salt per project.
+- Passwords: at least 12 characters, no recovery. Keep the key in memory, never the project password.
+- Only the menu uses input() and print(). Project never asks the user anything.
+- `privilege_level` is the SSH user's level at login (default 1). It is not a write protection.
+- `available_commands` is a list, None = not checked (test with `is None`). It is information only: the commands
   netaudit sends come from a fixed list in the code, never from a project file.
-- Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included.
-- Temporary exception to "never store passwords in plain text", decided by me: until part B, `hosts.json` holds
-  the passwords in plain text. It is ignored by Git. Encryption comes after the structure.
-- `scans/scans.py` defines Scan, the base class of all scans: time performed and `write`. Subclasses add the data.
-- `SCAN_TYPES` in `scans/scans.py` lists every scan type that can be loaded. Each new scan class gets a line there.
+- SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
 - A scan stores host IPs, never Host objects (they contain passwords).
-- Key from the password: Argon2id. Encryption: Fernet.
-- Passwords: at least 12 characters, no recovery.
+- `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
 ### Not decided yet
-- Log classes in `netaudit/log.py` (proposed: LogEntry, and a ProjectLog attached to Project)
+- `load_project`: it returns a new Project. I think it should load into the object instead (see the comment in the
+  code). If changed, a failed load must still leave the object untouched: load everything first, then assign.
+- Log classes (proposed: LogEntry, and a ProjectLog attached to Project). Never log secrets, escape device text.
+- Whether one damaged scan should stop the whole project from loading, as it does now.
+- Whether device names may show in file names under `configs/` once files are encrypted (Milestone 3).
+- Deleting projects: in the project.py docstring, not planned yet.
+
+### Known gaps (all reproduced)
+- No validation: IP, hostname, username, privilege 0-15, port, timeout, project name, field types, duplicate IPs.
+- Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
+- An interrupted `Scan.write` leaves a broken file, and then the project won't load.
+- A failed `create_project` leaves the folder behind, so trying again raises FileExistsError.
+- `create_project` doesn't save hosts, only the config. Call `save_hosts` after.
+- `Scan.write` can't save datetime or Path fields of subclasses, and tuples load back as lists.
+
+### Notes for part B
+- Bind each encrypted file to its path, as Fernet can't detect two swapped files.
+- A plain `project.salt` file was proposed for the salt.
+- Ignore `*.enc` and `*.enc.tmp` in Git. Remove the xfail marker when the plain-text test passes.
 
 ### Notes for Milestone 2
 - Fill `available_commands` by reading `show ?`. Never test a command by running it if it could change something.
 - With AAA command authorization a listed command can still be refused, so handle refusals when running it.
 - Below privilege 15 `show running-config` can be incomplete. Never report "passed" from incomplete data.
 - How `?` behaves inside CLI views is unverified: test it in a lab.
-
-### Right now
-- Branch: `feature/project-model`
-- Last finished step: Host has a list of available commands
-- Temporary: config, hosts and scans are saved as plain JSON. All must be encrypted in part B, before use with a real network.
-- Next step (proposed): validate what is typed in or loaded from files, then the log, then the menu.
