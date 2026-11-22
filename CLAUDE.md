@@ -94,16 +94,17 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 ### Decided
 - A project is a folder with different kinds of files (config, device configs, topology, log, ...), all encrypted.
 - JSON for most files, inside the encryption.
-- `project.py` handles creating and loading projects. `Device` does not live in it.
+- `project.py` handles creating and loading projects.
+- `host.py` defines Host: ip, hostname, SSH username, password and optional enable password.
+- Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included. Never save hosts unencrypted.
 - Key from the password: Argon2id. Encryption: Fernet.
 - Passwords: at least 12 characters, no recovery.
 
 ### Not decided yet
 - Log classes in `netaudit/log.py` (proposed: LogEntry, and a ProjectLog attached to Project)
-- Where Device lives (proposed: `netaudit/device.py`)
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: ProjectConfig.load
+- Last finished step: Host class
 - Temporary: save writes plain JSON. It must be encrypted in part B, before it is used with a real network.
 - Next step: 1.2, the log classes
