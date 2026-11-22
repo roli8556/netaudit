@@ -109,4 +109,6 @@ class Project:
         project.load_hosts()
         project.load_scans()
         return project
+        #Shouldnt return, should just load the project into the object, but for now this is easier to implement.
+        
 
