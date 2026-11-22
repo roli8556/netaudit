@@ -51,6 +51,7 @@ tested and committed before the next.
 - **Clear, readable code over clever code.** Descriptive names, short functions, type hints,
   a docstring on every function and class.
 - **Add dependencies one at a time,** and explain why each one is needed.
+- **Every code file has a test file:** `x.py` is tested by `tests/test_x.py` (empty `__init__.py` files don't need one).
 - **Tests:** use pytest. Test parsers and rules with saved sample output from real devices,
   so tests don't need the lab running.
 
