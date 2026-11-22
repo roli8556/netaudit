@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from netaudit.scans.scans import Scan
+from netaudit.scans.scans import Scan, find_scan_class
 
 
 @dataclass
@@ -16,6 +16,24 @@ class FakeScan(Scan):
 
     host_ip: str
     vlans: list[int]
+
+
+@dataclass
+class FakeDetailedScan(FakeScan):
+    """A subclass of a subclass."""
+
+
+def test_find_scan_class_finds_all_levels() -> None:
+    """The base, its children and their children can all be found."""
+    for scan_class in (Scan, FakeScan, FakeDetailedScan):
+        assert find_scan_class(scan_class.__name__) is scan_class
+
+
+@pytest.mark.parametrize("name", ["", "NoSuchScan", "Path", "eval", "Project"])
+def test_find_scan_class_refuses_everything_else(name: str) -> None:
+    """Only scan classes can be looked up."""
+    with pytest.raises(ValueError):
+        find_scan_class(name)
 
 
 def test_scan_stores_when_it_was_performed() -> None:

@@ -108,7 +108,7 @@ Order: structure first (A, C, D), encryption (B) after that.
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: create never overwrites a project
+- Last finished step: scan files can only name scan classes
 - Temporary: config, hosts and scans are saved as plain JSON. All must be encrypted in part B, before use with a real network.
 - Until part B, hosts.json has no passwords: they are empty after loading.
 - Next step (proposed): ignore plain-text project files in Git, then Project create and load. The log and validation also remain.

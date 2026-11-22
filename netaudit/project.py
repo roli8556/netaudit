@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from netaudit.host import Host
-from netaudit.scans.scans import Scan
+from netaudit.scans.scans import Scan, find_scan_class
 
 
 def current_timestamp() -> str:
@@ -85,7 +85,7 @@ class Project:
                     data = json.loads(text)
                     scan_type = data.pop("type")
                     performed_at = datetime.fromisoformat(data.pop("performed_at"))
-                    scan_class = globals()[scan_type]
+                    scan_class = find_scan_class(scan_type)
                     scan = scan_class(performed_at=performed_at, **data)
                     self.scans.append(scan)
 

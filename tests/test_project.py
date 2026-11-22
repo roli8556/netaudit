@@ -247,7 +247,6 @@ def test_create_does_not_overwrite_a_project(created: Project) -> None:
     assert ProjectConfig.load(created.path / "config.json").name == "bank"
 
 
-@pytest.mark.xfail(strict=True, raises=KeyError, reason="globals() doesn't contain scan subclasses")
 def test_load_scans_restores_a_subclass(created: Project) -> None:
     """A scan loads as the class that wrote it."""
     FakeHostScan("192.0.2.11").write(created.path / "scans")
@@ -255,7 +254,6 @@ def test_load_scans_restores_a_subclass(created: Project) -> None:
     assert isinstance(created.scans[0], FakeHostScan)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="globals() lets the file pick what to call")
 def test_scan_file_cannot_call_other_functions(
     created: Project, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -264,10 +262,8 @@ def test_scan_file_cannot_call_other_functions(
     monkeypatch.setattr(project_module, "helper", lambda **args: calls.append(args), raising=False)
     content = {"type": "helper", "performed_at": "2026-01-02T03:04:05"}
     (created.path / "scans" / "forged.scan.json").write_text(json.dumps(content), encoding="utf-8")
-    try:
+    with pytest.raises(ValueError):
         created.load_scans()
-    except (KeyError, ValueError):
-        pass
     assert calls == []
 
 

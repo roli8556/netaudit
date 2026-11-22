@@ -30,3 +30,16 @@ class Scan:
             file.write(text)
         self.path = path
         return path
+
+
+def find_scan_class(name: str) -> type[Scan]:
+    """Return the scan class with this name, raise ValueError if there is none.
+
+    Only finds subclasses whose module has been imported."""
+    to_check = [Scan]
+    while to_check:
+        scan_class = to_check.pop()
+        if scan_class.__name__ == name:
+            return scan_class
+        to_check.extend(scan_class.__subclasses__())
+    raise ValueError(f"Unknown scan type: {name!r}")
