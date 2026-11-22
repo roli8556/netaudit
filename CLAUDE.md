@@ -97,6 +97,8 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 - `project.py` handles creating and loading projects.
 - `host.py` defines Host: ip, hostname, SSH username, password and optional enable password.
 - Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included. Never save hosts unencrypted.
+- `scans/scans.py` defines Scan, the base class of all scans: time performed and `write`. Subclasses add the data.
+- A scan stores host IPs, never Host objects (they contain passwords).
 - Key from the password: Argon2id. Encryption: Fernet.
 - Passwords: at least 12 characters, no recovery.
 
@@ -105,6 +107,6 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: scan results are ignored by Git
+- Last finished step: Scan base class
 - Temporary: save writes plain JSON. It must be encrypted in part B, before it is used with a real network.
 - Next step (proposed): part B, encryption, which hosts.enc depends on. The log and validation also remain.
