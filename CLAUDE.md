@@ -104,6 +104,6 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: ProjectConfig.save (after 1.1)
+- Last finished step: ProjectConfig.load
 - Temporary: save writes plain JSON. It must be encrypted in part B, before it is used with a real network.
 - Next step: 1.2, the log classes

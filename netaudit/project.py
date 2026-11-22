@@ -18,7 +18,7 @@ class ProjectConfig:
     ssh_port: int = 22
     ssh_timeout: int = 10
     created_time: str = field(default_factory=current_timestamp)
-
+    
     def save(self, path: Path) -> None:
         """Save or create a new project configuration file in JSON format."""
         # TODO: encrypt before writing (part B), this is plain text for now
@@ -26,6 +26,13 @@ class ProjectConfig:
         temp_path = path.with_name(path.name + ".tmp")
         temp_path.write_text(text, encoding="utf-8")
         temp_path.replace(path)
+
+    @staticmethod
+    def load(path: Path) -> "ProjectConfig":
+        """Load a project configuration file from JSON format."""
+        text = path.read_text(encoding="utf-8")
+        data = json.loads(text)
+        return ProjectConfig(**data)
 
 
 

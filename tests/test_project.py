@@ -70,6 +70,15 @@ def test_failed_save_keeps_the_old_file(tmp_path: Path) -> None:
     assert path.read_bytes() == old_content
 
 
+def test_load_returns_the_saved_config(tmp_path: Path) -> None:
+    """A config is the same after saving and loading."""
+    path = tmp_path / "config.json"
+    config = ProjectConfig("office", ssh_port=2222)
+    config.save(path)
+    assert ProjectConfig.load(path) == config
+    assert config.load(path) == config  # a staticmethod also works on an object
+
+
 def test_save_to_missing_folder_raises(tmp_path: Path) -> None:
     """Save does not create folders."""
     with pytest.raises(FileNotFoundError):
