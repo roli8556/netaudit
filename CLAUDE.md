@@ -74,4 +74,4 @@ tested and committed before the next.
 10. SNMP / traffic analysis.
 
 ## Current status
-Milestone 0 has not started yet.
+Milestone 0 is done. Milestone 1 is next.
