@@ -230,3 +230,6 @@ __marimo__/
 
 # Claude Code: private instructions (personal and lab details)
 /CLAUDE.local.md
+
+# netaudit: scan results (not scans/, that would also ignore the source code)
+*.scan.json

@@ -105,6 +105,6 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: Project has a list of hosts
+- Last finished step: scan results are ignored by Git
 - Temporary: save writes plain JSON. It must be encrypted in part B, before it is used with a real network.
 - Next step (proposed): part B, encryption, which hosts.enc depends on. The log and validation also remain.
