@@ -27,6 +27,12 @@ def test_enable_password_is_optional() -> None:
     assert host.enable_password is None
 
 
+def test_available_commands_start_as_not_checked() -> None:
+    """None means not checked, which is different from an empty list."""
+    host = Host("192.0.2.11", "core", "auditor", "fake-login")
+    assert host.available_commands is None
+
+
 def test_printing_a_host_hides_its_passwords() -> None:
     """Passwords never show up when a host is printed or formatted."""
     host = Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable")

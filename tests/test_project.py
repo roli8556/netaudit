@@ -161,6 +161,18 @@ def test_hosts_survive_save_and_load(created: Project, host: Host) -> None:
     assert created.hosts == [host, no_enable]
 
 
+@pytest.mark.parametrize("commands", [None, [], ["show version", "show vlan"]])
+def test_available_commands_survive_save_and_load(
+    created: Project, host: Host, commands: list[str] | None
+) -> None:
+    """Not checked, none available and some available all load back as they were."""
+    host.available_commands = commands
+    created.hosts = [host]
+    created.save_hosts()
+    created.load_hosts()
+    assert created.hosts[0].available_commands == commands
+
+
 def test_load_hosts_without_a_file_gives_no_hosts(created: Project, host: Host) -> None:
     """A project without saved hosts has none."""
     created.hosts = [host]

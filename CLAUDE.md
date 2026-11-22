@@ -99,6 +99,8 @@ Order: structure first (A, C, D), encryption (B) after that.
 - In a project folder, `config.json` holds the project's own settings and `configs/` holds the devices' running configs.
 - `host.py` defines Host: ip, hostname, ssh_username, ssh_password, optional enable_password and privilege_level
   (the SSH user's level at login, default 1). The level is not a write protection: read-only by default still applies.
+- `Host.available_commands` lists what the login can run (None = not checked). It is information only: the commands
+  netaudit sends come from a fixed list in the code, never from a project file.
 - Hosts are saved in `hosts.enc` (JSON, encrypted), passwords included.
 - Temporary exception to "never store passwords in plain text", decided by me: until part B, `hosts.json` holds
   the passwords in plain text. It is ignored by Git. Encryption comes after the structure.
@@ -111,8 +113,14 @@ Order: structure first (A, C, D), encryption (B) after that.
 ### Not decided yet
 - Log classes in `netaudit/log.py` (proposed: LogEntry, and a ProjectLog attached to Project)
 
+### Notes for Milestone 2
+- Fill `available_commands` by reading `show ?`. Never test a command by running it if it could change something.
+- With AAA command authorization a listed command can still be refused, so handle refusals when running it.
+- Below privilege 15 `show running-config` can be incomplete. Never report "passed" from incomplete data.
+- How `?` behaves inside CLI views is unverified: test it in a lab.
+
 ### Right now
 - Branch: `feature/project-model`
-- Last finished step: Host has ssh_ field names and a privilege level
+- Last finished step: Host has a list of available commands
 - Temporary: config, hosts and scans are saved as plain JSON. All must be encrypted in part B, before use with a real network.
 - Next step (proposed): validate what is typed in or loaded from files, then the log, then the menu.
