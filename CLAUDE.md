@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 58 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log step 1 of 3, LogLevel, LogCategory and LogEntry (one JSON line per entry).
-- Next step: log step 2, ProjectLog (write and read the file). Step 3: attach it to Project, log create and load.
+  Expected: 64 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log step 2, ProjectLog (entries in memory, write appends to the file, load reads it).
+- Next step: log step 3, attach ProjectLog to Project, log create and load. Then filtering (`find`).
   Then validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
@@ -116,7 +116,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans; create, save, load).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
-- `netaudit/log.py`: LogLevel, LogCategory and LogEntry. ProjectLog comes next.
+- `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file).
 
 ### A project on disk (can be anywhere)
 - `config.json`: the project's own settings.
@@ -143,6 +143,10 @@ Order: A, C, D (structure), then B (encryption), then E.
   SCAN = collecting data from devices, CHECK = checking it for problems.
 - Findings are not log entries: they are stored with the scan. The log only gets a summary line per scan.
   Finding severity will be its own enum on the Finding class (Milestone 5).
+- ProjectLog keeps all entries in memory. `write` writes to the file first, then to the list.
+  A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
+  `write` adds a line break first if the file ends with a half-written line.
+- Only one netaudit per open project: two would each have their own entries and hosts in memory.
 - Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 

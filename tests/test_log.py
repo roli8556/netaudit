@@ -2,10 +2,11 @@
 
 import json
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
-from netaudit.log import LogCategory, LogEntry, LogLevel
+from netaudit.log import LogCategory, LogEntry, LogLevel, ProjectLog
 
 
 def test_entry_defaults_to_info_and_now() -> None:
@@ -43,3 +44,73 @@ def test_line_that_is_not_json_raises() -> None:
     """A damaged line is an error, not an empty entry."""
     with pytest.raises(ValueError):
         LogEntry.from_line("not json")
+
+
+@pytest.fixture
+def log(tmp_path: Path) -> ProjectLog:
+    """An empty log in a temporary folder, with no file yet."""
+    return ProjectLog(tmp_path / "project.log")
+
+
+def test_written_entries_load_back_in_order(log: ProjectLog) -> None:
+    """A fresh log loaded from the file has the same entries as the one that wrote them."""
+    log.write("Project created", LogCategory.PROJECT)
+    log.write("Login failed", LogCategory.HOST, LogLevel.SECURITY)
+    fresh = ProjectLog(log.path)
+    fresh.load()
+    assert fresh.entries == log.entries
+    assert len(fresh.entries) == 2
+
+
+def test_load_missing_file_gives_no_entries(log: ProjectLog) -> None:
+    """A project without a log file yet is not an error."""
+    log.load()
+    assert log.entries == []
+
+
+def test_load_twice_does_not_duplicate(log: ProjectLog) -> None:
+    """Loading replaces the entries."""
+    log.write("Project created", LogCategory.PROJECT)
+    log.load()
+    log.load()
+    assert len(log.entries) == 1
+
+
+def test_write_to_missing_folder_raises_and_keeps_entries(tmp_path: Path) -> None:
+    """If the file can't be written, the entries in memory don't change."""
+    log = ProjectLog(tmp_path / "missing" / "project.log")
+    with pytest.raises(FileNotFoundError):
+        log.write("Project created", LogCategory.PROJECT)
+    assert log.entries == []
+
+
+def test_blank_lines_are_ignored(log: ProjectLog) -> None:
+    """Empty lines are not entries and not damage."""
+    log.write("Project created", LogCategory.PROJECT)
+    with log.path.open("a", encoding="utf-8") as file:
+        file.write("\n   \n")
+    log.load()
+    assert len(log.entries) == 1
+
+
+def test_half_written_line_is_skipped_and_kept_separate(log: ProjectLog) -> None:
+    """After a crash mid-write, only the damaged line is lost, and it is reported once."""
+    log.write("Scan started", LogCategory.SCAN)
+    with log.path.open("a", encoding="utf-8") as file:
+        file.write('{"time": "2026-01-02T03:04:05", "mess')  # crash: no line break at the end
+    log.load()
+    assert [e.message for e in log.entries] == [
+        "Scan started",
+        "Line 2 in the log is damaged and was skipped",
+    ]
+    assert log.entries[1].level == LogLevel.WARNING
+    assert log.entries[1].category == LogCategory.MISC
+
+    log.write("Project loaded", LogCategory.PROJECT)
+    fresh = ProjectLog(log.path)
+    fresh.load()
+    assert [e.message for e in fresh.entries] == [
+        "Scan started",
+        "Project loaded",
+        "Line 2 in the log is damaged and was skipped",
+    ]
