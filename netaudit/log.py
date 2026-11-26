@@ -26,6 +26,13 @@ class LogCategory(Enum):
     MISC = "MISC" # Other events that don't fit into the above categories, like errors in the log itself
 
 
+class LogOrder(Enum):
+    """How to sort log entries."""
+
+    NUMBER = "NUMBER"
+    TIME = "TIME"
+
+
 @dataclass
 class LogEntry:
     """One event in the log."""
@@ -150,6 +157,20 @@ class ProjectLog:
                 continue
             result.append(entry)
         return result
+
+    @staticmethod
+    def sort_entries(
+        entries: list[LogEntry], order: LogOrder = LogOrder.NUMBER, newest_first: bool = False
+    ) -> list[LogEntry]:
+        """Return a new list of the entries sorted by number or time. The given list is not changed.
+
+        Entries without a number (warnings about damaged lines) go last when sorting by number.
+        Entries with the same time keep their order."""
+        if order == LogOrder.TIME:
+            return sorted(entries, key=lambda entry: entry.time, reverse=newest_first)
+        numbered = [entry for entry in entries if entry.number is not None]
+        unnumbered = [entry for entry in entries if entry.number is None]
+        return sorted(numbered, key=lambda entry: entry.number, reverse=newest_first) + unnumbered
 
     def _ends_with_half_line(self) -> bool:
         """Return True if the file doesn't end with a line break, as after an interrupted write."""

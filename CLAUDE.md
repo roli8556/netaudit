@@ -83,8 +83,8 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 97 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log entries have a sequence number, and `find` filters by a number range. The log is done.
+  Expected: 102 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: `ProjectLog.sort_entries` (by number or time). The log is done.
 - Next step: validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
@@ -118,7 +118,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
 - `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file,
-  `find` to filter them).
+  `find` to filter them, `sort_entries` to sort any list of them).
 
 ### A project on disk (can be anywhere)
 - `config.json`: the project's own settings.
@@ -152,6 +152,7 @@ Order: A, C, D (structure), then B (encryption), then E.
   the in-memory warnings about damaged lines. A failed write leaves the entry without a number.
   A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
   `write` adds a line break first if the file ends with a half-written line.
+- `log.entries` always stays in file order. `find` and `sort_entries` return new lists and never write.
 - Only one netaudit per open project: two would each have their own entries and hosts in memory.
 - PROJECT_FOLDERS lists the project folders. Load creates a missing `logs/` itself and logs a warning for
   every missing folder. The others are only created when the user chooses to (asked by the menu).

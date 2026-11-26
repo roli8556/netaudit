@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from netaudit.log import LogCategory, LogEntry, LogLevel, ProjectLog
+from netaudit.log import LogCategory, LogEntry, LogLevel, LogOrder, ProjectLog
 
 
 def test_entry_defaults_to_info_and_now() -> None:
@@ -282,3 +282,44 @@ def test_failed_write_does_not_use_up_a_number(log: ProjectLog, tmp_path: Path) 
     entry = LogEntry("Project loaded", LogCategory.PROJECT)
     log.write(entry)
     assert entry.number == 2
+
+
+@pytest.fixture
+def unsorted() -> list[LogEntry]:
+    """Entries out of order by number and by time, plus one without a number."""
+    return [
+        LogEntry("b", LogCategory.MISC, time=datetime(2026, 1, 3), number=2),
+        LogEntry("warning", LogCategory.MISC, LogLevel.WARNING, time=datetime(2026, 1, 9)),
+        LogEntry("c", LogCategory.MISC, time=datetime(2026, 1, 1), number=3),
+        LogEntry("a", LogCategory.MISC, time=datetime(2026, 1, 2), number=1),
+    ]
+
+
+def test_sort_by_number_puts_unnumbered_last(unsorted: list[LogEntry]) -> None:
+    """Sorting by number is the default, and entries without a number come last."""
+    assert messages(ProjectLog.sort_entries(unsorted)) == ["a", "b", "c", "warning"]
+
+
+def test_sort_by_number_newest_first(unsorted: list[LogEntry]) -> None:
+    """Newest first reverses the numbered entries, and unnumbered ones still come last."""
+    assert messages(ProjectLog.sort_entries(unsorted, newest_first=True)) == ["c", "b", "a", "warning"]
+
+
+def test_sort_by_time(unsorted: list[LogEntry]) -> None:
+    """Sorting by time uses every entry's time, numbered or not."""
+    assert messages(ProjectLog.sort_entries(unsorted, LogOrder.TIME)) == ["c", "a", "b", "warning"]
+    assert messages(ProjectLog.sort_entries(unsorted, LogOrder.TIME, newest_first=True)) == ["warning", "b", "a", "c"]
+
+
+def test_sort_by_time_keeps_order_of_equal_times() -> None:
+    """Two entries at the same time stay in the order they were given."""
+    same = datetime(2026, 1, 1)
+    entries = [LogEntry("first", LogCategory.MISC, time=same), LogEntry("second", LogCategory.MISC, time=same)]
+    assert messages(ProjectLog.sort_entries(entries, LogOrder.TIME)) == ["first", "second"]
+
+
+def test_sort_does_not_change_the_given_list(unsorted: list[LogEntry]) -> None:
+    """The result is a new list, the original keeps its order."""
+    before = list(unsorted)
+    ProjectLog.sort_entries(unsorted)
+    assert unsorted == before
