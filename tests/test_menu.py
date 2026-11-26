@@ -13,28 +13,28 @@ def fake_input(monkeypatch: pytest.MonkeyPatch, answers: list[str]) -> None:
 
 def test_choosing_exit_ends_the_menu(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """Exit stops run and says goodbye."""
-    fake_input(monkeypatch, ["3"])
+    fake_input(monkeypatch, ["q"])
     Menu().run()
     out = capsys.readouterr().out
     assert "1. Create project" in out
     assert out.endswith("Bye\n")
 
 
-@pytest.mark.parametrize("bad", ["9", "0", "abc", "1.0", "²"])
+@pytest.mark.parametrize("bad", ["3", "9", "0", "abc", "quit", "1.0", "²"])
 def test_invalid_choice_shows_the_menu_again(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], bad: str
 ) -> None:
     """Anything but a listed number is refused on stderr, and the start menu is shown again."""
-    fake_input(monkeypatch, [bad, "3"])
+    fake_input(monkeypatch, [bad, "q"])
     Menu().run()
     captured = capsys.readouterr()
-    assert "Please type a number from 1 to 3." in captured.err
+    assert "Please type 1, 2 or q." in captured.err
     assert captured.out.count("Start menu") == 2
 
 
 def test_choice_may_have_spaces(monkeypatch: pytest.MonkeyPatch) -> None:
     """Spaces around the number don't matter."""
-    fake_input(monkeypatch, [" 3 "])
+    fake_input(monkeypatch, [" q "])
     assert Menu().start_menu() is False
 
 
@@ -52,7 +52,7 @@ def test_not_yet_available_choice_returns_to_the_menu(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Create and load aren't built yet, so the menu is shown again."""
-    fake_input(monkeypatch, ["1", "3"])
+    fake_input(monkeypatch, ["1", "q"])
     Menu().run()
     assert "Not available yet." in capsys.readouterr().out
 
@@ -88,3 +88,9 @@ def test_error_from_an_action_is_shown_and_the_menu_continues(
 def test_new_menu_has_no_project() -> None:
     """The start menu begins without an open project."""
     assert Menu().project is None
+
+
+def test_capital_q_also_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exit works with Q as well as q."""
+    fake_input(monkeypatch, ["Q"])
+    assert Menu().start_menu() is False

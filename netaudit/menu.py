@@ -33,16 +33,16 @@ class Menu:
         print("Start menu")
         print("  1. Create project")
         print("  2. Load project")
-        print("  3. Exit")
+        print("  q. Exit")
         choice = self.ask("Choose: ")
         if choice == "1":
             self.create_project_menu()
         elif choice == "2":
             self.load_project_menu()
-        elif choice == "3":
+        elif choice.lower() == "q":  # Q works too
             return False
         else:
-            print("Please type a number from 1 to 3.", file=sys.stderr)
+            print("Please type 1, 2 or q.", file=sys.stderr)
         return True
 
     def create_project_menu(self) -> None:

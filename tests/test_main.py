@@ -7,7 +7,7 @@ from main import main
 
 def test_main_runs_the_menu(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """main starts the menu, and Exit ends it."""
-    monkeypatch.setattr("builtins.input", lambda prompt="": "3")
+    monkeypatch.setattr("builtins.input", lambda prompt="": "q")
     main()
     out = capsys.readouterr().out
     assert out.startswith("netaudit")
