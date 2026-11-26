@@ -1,5 +1,7 @@
 """Tests for netaudit/host.py."""
 
+import pytest
+
 from netaudit.host import Host
 
 
@@ -39,3 +41,65 @@ def test_printing_a_host_hides_its_passwords() -> None:
     for text in (repr(host), str(host), f"{host}", repr([host])):
         assert "fake-login" not in text
         assert "fake-enable" not in text
+
+
+@pytest.mark.parametrize("ip", ["192.0.2.11", "10.0.0.1", "0.0.0.0", "255.255.255.255"])
+def test_valid_ipv4_is_accepted(ip: str) -> None:
+    """Any IPv4 address in dotted form is a valid host IP."""
+    assert Host(ip, "core", "auditor", "fake-login").ip == ip
+
+
+@pytest.mark.parametrize(
+    "ip",
+    [
+        "",
+        "abc",
+        "192.0.2.256",  # number too large
+        "192.0.2",  # too few parts
+        "192.0.2.011",  # leading zero, could be read as octal
+        " 192.0.2.11",  # space
+        "10.0.0.1; reload",  # command injection
+        "2001:db8::1",  # IPv6, not supported yet
+        3232235786,  # an int, which ipaddress would otherwise accept
+        None,
+    ],
+)
+def test_invalid_ip_raises(ip: object) -> None:
+    """Anything that isn't an IPv4 address as text is rejected."""
+    with pytest.raises(ValueError):
+        Host(ip, "core", "auditor", "fake-login")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("level", [0, 15])
+def test_privilege_level_limits_are_accepted(level: int) -> None:
+    """0 and 15 are both valid Cisco privilege levels."""
+    assert Host("192.0.2.11", "core", "auditor", "fake-login", privilege_level=level).privilege_level == level
+
+
+@pytest.mark.parametrize("level", [-1, 16, 1.5, True, "15", None])
+def test_invalid_privilege_level_raises(level: object) -> None:
+    """Only whole numbers from 0 to 15 are privilege levels, not bools, floats or text."""
+    with pytest.raises(ValueError):
+        Host("192.0.2.11", "core", "auditor", "fake-login", privilege_level=level)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("username", ["", "   ", None])
+def test_empty_username_raises(username: object) -> None:
+    """A host needs a username to log in with."""
+    with pytest.raises(ValueError):
+        Host("192.0.2.11", "core", username, "fake-login")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("password", ["", None])
+def test_empty_password_raises(password: object) -> None:
+    """A host needs a password to log in with."""
+    with pytest.raises(ValueError):
+        Host("192.0.2.11", "core", "auditor", password)  # type: ignore[arg-type]
+
+
+def test_invalid_ip_error_does_not_show_the_password() -> None:
+    """Error messages name the bad value, never the secrets."""
+    with pytest.raises(ValueError) as error:
+        Host("bad", "core", "auditor", "fake-login", "fake-enable")
+    assert "fake-login" not in str(error.value)
+    assert "fake-enable" not in str(error.value)

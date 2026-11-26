@@ -83,9 +83,10 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 102 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: `ProjectLog.sort_entries` (by number or time). The log is done.
-- Next step: validation, starting with the IP check in Host, then the menu.
+  Expected: 130 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: Host validates IP (IPv4 only), privilege level 0-15, and non-empty username and password.
+- Next step: more validation (hostname and username characters, port and timeout, project name, duplicate IPs),
+  then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -160,6 +161,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   must handle. The log is the history, `issues` the current state. Each fix removes its issue.
   Added early on purpose (decided by me), with one kind so far. Damaged scans may become the next kind.
 - Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
+- Host checks its data in `__post_init__`, so a bad Host can't exist, from the menu or from hosts.json.
+  IPv4 only for now (decided by me). Type checks come before value checks.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
 ### Not decided yet
@@ -168,7 +171,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Deleting projects: in the project.py docstring, not planned yet.
 
 ### Known gaps (all reproduced)
-- No validation: IP, hostname, username, privilege 0-15, port, timeout, project name, field types, duplicate IPs.
+- Not validated yet: hostname, characters in the username, port, timeout, project name, duplicate IPs,
+  and the types of the other fields.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
