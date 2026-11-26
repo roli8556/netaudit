@@ -105,9 +105,47 @@ class Project:
             data = json.loads(text)
             if not isinstance(data, list):
                 raise ValueError(f"{hosts_path} does not contain a list of hosts")
-            self.hosts = [Host(**host_data) for host_data in data]
+            hosts = [Host(**host_data) for host_data in data]
+            ips = [host.ip for host in hosts]
+            if len(ips) != len(set(ips)):  # a set keeps each IP once, so it is shorter if one repeats
+                raise ValueError(f"{hosts_path} contains the same IP address more than once")
+            self.hosts = hosts
         else:
             self.hosts = []
+
+    def add_host(self, host: Host) -> None:
+        """Add a host and save the hosts. Raises ValueError if a host with the same IP exists.
+
+        If saving fails, the host is taken out again, so memory and file still match."""
+        for existing in self.hosts:
+            if existing.ip == host.ip:
+                raise ValueError(f"A host with IP {host.ip} already exists")
+        self.hosts.append(host)
+        try:
+            self.save_hosts()
+        except OSError:
+            self.hosts.remove(host)
+            raise
+        self.log.write(LogEntry(f"Added host {host.ip}", LogCategory.HOST))
+
+    def remove_host(self, ip: str) -> Host:
+        """Remove the host with this IP, save the hosts, and return the removed host.
+
+        Raises ValueError if no host has this IP. If saving fails, the host is put back where it was."""
+        for index, host in enumerate(self.hosts):
+            if host.ip == ip:
+                break
+        else:
+            raise ValueError(f"No host with IP {ip!r}")
+        self.hosts.pop(index)
+        try:
+            self.save_hosts()
+        except OSError:
+            self.hosts.insert(index, host)
+            raise
+        self.log.write(LogEntry(f"Removed host {ip}", LogCategory.HOST))
+        return host
+
     def load_scans(self) -> None:
         """Load the scans from the scans directory in the project directory."""
         scans_path = self.path / "scans"

@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 192 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: ProjectConfig checks its name, port, timeout and created time.
-- Next step: `Project.add_host` and `remove_host`, with no duplicate IPs. Then the menu.
+  Expected: 199 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: `Project.add_host` and `remove_host` (save right away, no duplicate IPs).
+- Next step: the menu (part D), starting with the start menu in `netaudit/menu.py`.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -101,7 +101,7 @@ Goal: start netaudit, create or load an encrypted project from a menu, add and s
 Order: A, C, D (structure), then B (encryption), then E.
 - [ ] A. Project model
   - [x] Project, ProjectConfig, Host, Scan base class
-  - [ ] Validation
+  - [x] Validation
   - [x] Log
 - [ ] C. Project files
   - [x] Create without overwriting, save and load config and hosts, write and load scans
@@ -114,7 +114,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 
 ### The code today
 - `main.py`: only prints the name. It will only start the menu.
-- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log; create, save, load).
+- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
+  load, add and remove hosts).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
 - `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file,
@@ -138,6 +139,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
 - `__post_init__` only runs when a Host is created, not when a field is assigned later. The parser must check
   values before assigning them, with the same functions (like `is_valid_hostname`) so each rule exists once.
+- `add_host` and `remove_host` save hosts.json right away. If saving fails, the change is undone in memory.
+  No two hosts share an IP, also checked when loading hosts.json.
 - ProjectConfig: name 1-64 printable characters (any language), port 1-65535, timeout 1-300 seconds.
 - Usernames and passwords can't contain control characters: a line break in a password typed into the CLI
   could send a second command. Error messages never show a password.
@@ -177,7 +180,6 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Deleting projects: in the project.py docstring, not planned yet.
 
 ### Known gaps (all reproduced)
-- Not validated yet: duplicate IPs.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.

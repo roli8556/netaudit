@@ -492,3 +492,66 @@ def test_loading_a_config_with_a_bad_value_raises(tmp_path: Path) -> None:
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ValueError):
         ProjectConfig.load(path)
+
+
+def test_add_host_saves_and_logs_it(created: Project, host: Host) -> None:
+    """An added host is in memory, in hosts.json, and in the log."""
+    created.add_host(host)
+    assert created.hosts == [host]
+    assert Project.load(created.path).hosts == [host]
+    assert created.log.entries[-1].message == "Added host 192.0.2.11"
+
+
+def test_add_host_with_an_existing_ip_raises(created: Project, host: Host) -> None:
+    """Two hosts can't share an IP, and the first one is kept."""
+    created.add_host(host)
+    other = Host("192.0.2.11", "other", "fake-other")
+    with pytest.raises(ValueError):
+        created.add_host(other)
+    assert created.hosts == [host]
+
+
+def test_add_host_that_cant_be_saved_is_taken_out(tmp_path: Path, host: Host) -> None:
+    """If hosts.json can't be written, the host isn't kept in memory either."""
+    project = Project(tmp_path / "missing", ProjectConfig("office"))
+    with pytest.raises(OSError):
+        project.add_host(host)
+    assert project.hosts == []
+
+
+def test_remove_host_saves_logs_and_returns_it(created: Project, host: Host) -> None:
+    """A removed host is gone from memory and from hosts.json, and is returned."""
+    second = Host("192.0.2.12", "auditor", "fake-login")
+    created.add_host(host)
+    created.add_host(second)
+    assert created.remove_host("192.0.2.11") == host
+    assert created.hosts == [second]
+    assert Project.load(created.path).hosts == [second]
+    assert created.log.entries[-1].message == "Removed host 192.0.2.11"
+
+
+def test_remove_unknown_host_raises(created: Project, host: Host) -> None:
+    """Removing an IP that isn't there is an error, and nothing changes."""
+    created.add_host(host)
+    with pytest.raises(ValueError):
+        created.remove_host("192.0.2.99")
+    assert created.hosts == [host]
+
+
+def test_remove_host_that_cant_be_saved_is_put_back(created: Project, host: Host) -> None:
+    """If hosts.json can't be written, the host stays, in the same place."""
+    second = Host("192.0.2.12", "auditor", "fake-login")
+    created.add_host(host)
+    created.add_host(second)
+    created.path = created.path / "missing"  # saving now fails
+    with pytest.raises(OSError):
+        created.remove_host("192.0.2.11")
+    assert created.hosts == [host, second]
+
+
+def test_load_hosts_with_duplicate_ips_raises(created: Project, host: Host) -> None:
+    """A hosts.json edited to have the same IP twice doesn't load."""
+    created.hosts = [host, Host("192.0.2.11", "other", "fake-other")]
+    created.save_hosts()
+    with pytest.raises(ValueError):
+        created.load_hosts()
