@@ -83,9 +83,10 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 52 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: the Host class has its fields, and projects can be created, saved and loaded.
-- Next step (proposed, not yet OK'd): validation, starting with the IP check in Host. Then the log, then the menu.
+  Expected: 58 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log step 1 of 3, LogLevel, LogCategory and LogEntry (one JSON line per entry).
+- Next step: log step 2, ProjectLog (write and read the file). Step 3: attach it to Project, log create and load.
+  Then validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -115,14 +116,14 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans; create, save, load).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
-- `netaudit/log.py`: empty.
+- `netaudit/log.py`: LogLevel, LogCategory and LogEntry. ProjectLog comes next.
 
 ### A project on disk (can be anywhere)
 - `config.json`: the project's own settings.
 - `hosts.json`: the hosts, becomes `hosts.enc`.
 - `configs/`: running configs of the devices. Not the project's settings.
 - `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.json`, never overwritten.
-- `logs/`: for the log.
+- `logs/project.log`: the log, one JSON object per line (ignored by Git through `*.log`).
 - Later more, for example topology.
 
 ### Decided
@@ -137,10 +138,15 @@ Order: A, C, D (structure), then B (encryption), then E.
 - A scan stores host IPs, never Host objects (they contain passwords).
 - `Project.create(path, config)` and `Project.load(path)` are classmethods that return a complete Project.
   The constructor stays plain (no disk access). `load_hosts` and `load_scans` refresh parts of an existing project.
+- The log is our own class, not the `logging` module (encryption in part B, reading it back in the menu).
+  An entry has a category (PROJECT, HOST, SCAN, CHECK, MISC) and a level (INFO, WARNING, ERROR, SECURITY).
+  SCAN = collecting data from devices, CHECK = checking it for problems.
+- Findings are not log entries: they are stored with the scan. The log only gets a summary line per scan.
+  Finding severity will be its own enum on the Finding class (Milestone 5).
+- Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
 ### Not decided yet
-- Log classes (proposed: LogEntry, and a ProjectLog attached to Project). Never log secrets, escape device text.
 - Whether one damaged scan should stop the whole project from loading, as it does now.
 - Whether device names may show in file names under `configs/` once files are encrypted (Milestone 3).
 - Deleting projects: in the project.py docstring, not planned yet.
