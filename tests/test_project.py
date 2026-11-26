@@ -127,9 +127,7 @@ class FakeHostScan(Scan):
 @pytest.fixture
 def created(tmp_path: Path) -> Project:
     """A project that has been created in a temporary folder."""
-    project = Project(tmp_path / "bank", ProjectConfig("bank"))
-    project.create_project()
-    return project
+    return Project.create(tmp_path / "bank", ProjectConfig("bank"))
 
 
 @pytest.fixture(autouse=True)
@@ -211,14 +209,14 @@ def test_load_scans_without_a_folder_gives_no_scans(tmp_path: Path) -> None:
     assert project.scans == []
 
 
-def test_load_project_restores_config_hosts_and_scans(created: Project, host: Host) -> None:
+def test_load_restores_config_hosts_and_scans(created: Project, host: Host) -> None:
     """Loading brings back all parts of a project."""
     created.hosts = [host]
     created.save_hosts()
     scan = Scan()
     scan.write(created.path / "scans")
 
-    loaded = Project.load_project(created.path)
+    loaded = Project.load(created.path)
     assert loaded.config == created.config
     assert loaded.hosts == [host]
     assert [s.performed_at for s in loaded.scans] == [scan.performed_at]
@@ -227,7 +225,7 @@ def test_load_project_restores_config_hosts_and_scans(created: Project, host: Ho
 def test_load_missing_project_raises(tmp_path: Path) -> None:
     """A folder that doesn't exist can't be loaded."""
     with pytest.raises(FileNotFoundError):
-        Project.load_project(tmp_path / "missing")
+        Project.load(tmp_path / "missing")
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError, reason="not encrypted until part B")
@@ -244,7 +242,7 @@ def test_saved_hosts_do_not_expose_passwords(created: Project, host: Host) -> No
 def test_create_does_not_overwrite_a_project(created: Project) -> None:
     """Creating where a project already exists leaves that project intact."""
     with pytest.raises(FileExistsError):
-        Project(created.path, ProjectConfig("school")).create_project()
+        Project.create(created.path, ProjectConfig("school"))
     assert ProjectConfig.load(created.path / "config.json").name == "bank"
 
 
@@ -312,12 +310,11 @@ def test_load_hosts_rejects_json_that_is_not_a_list(created: Project, content: s
 
 def test_failed_load_changes_nothing(created: Project, host: Host, tmp_path: Path) -> None:
     """If any part can't be loaded, the open project is left as it was."""
-    broken = Project(tmp_path / "school", ProjectConfig("school"))
-    broken.create_project()
+    broken = Project.create(tmp_path / "school", ProjectConfig("school"))
     (broken.path / "hosts.json").write_text("broken", encoding="utf-8")
     created.hosts = [host]
     with pytest.raises(ValueError):
-        created.load_project(broken.path)
+        created = Project.load(broken.path)
     assert created.path == tmp_path / "bank"
     assert created.config.name == "bank"
     assert created.hosts == [host]

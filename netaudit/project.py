@@ -88,27 +88,25 @@ class Project:
             scans.append(scan_class(performed_at=performed_at, **data))
         self.scans = scans
 
-    def create_project(self) -> None:
-        """Create the project directory, subdirectories, and save the configuration file.
+    @classmethod
+    def create(cls, path: Path, config: ProjectConfig) -> "Project":
+        """Create the project directory, subdirectories and configuration file, and return the new project.
 
         Raises FileExistsError if the directory already exists."""
-        self.path.mkdir(parents=True)
-        (self.path / "logs").mkdir()
-        (self.path / "configs").mkdir()
-        (self.path / "scans").mkdir()
-        config_path = self.path / "config.json"
-        self.config.save(config_path)
+        path.mkdir(parents=True)
+        (path / "logs").mkdir()
+        (path / "configs").mkdir()
+        (path / "scans").mkdir()
+        config.save(path / "config.json")
+        return cls(path, config)
 
-    @staticmethod
-    def load_project(path: Path) -> "Project":
+    @classmethod
+    def load(cls, path: Path) -> "Project":
         """Return the project stored in path, with its configuration and any other data.
 
         If any part can't be loaded this raises, and no project is returned."""
         config = ProjectConfig.load(path / "config.json")
-        project = Project(path, config)
+        project = cls(path, config)
         project.load_hosts()
         project.load_scans()
         return project
-        #Shouldnt return, should just load the project into the object, but for now this is easier to implement.
-        
-

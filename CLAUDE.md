@@ -86,7 +86,6 @@ Update this section in the commit of every step.
   Expected: 52 passed, 1 xfailed (the plain-text password test, until part B).
 - Last finished step: the Host class has its fields, and projects can be created, saved and loaded.
 - Next step (proposed, not yet OK'd): validation, starting with the IP check in Host. Then the log, then the menu.
-- First ask about the open design question on `load_project` below.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -136,11 +135,11 @@ Order: A, C, D (structure), then B (encryption), then E.
   netaudit sends come from a fixed list in the code, never from a project file.
 - SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
 - A scan stores host IPs, never Host objects (they contain passwords).
+- `Project.create(path, config)` and `Project.load(path)` are classmethods that return a complete Project.
+  The constructor stays plain (no disk access). `load_hosts` and `load_scans` refresh parts of an existing project.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
 ### Not decided yet
-- `load_project`: it returns a new Project. I think it should load into the object instead (see the comment in the
-  code). If changed, a failed load must still leave the object untouched: load everything first, then assign.
 - Log classes (proposed: LogEntry, and a ProjectLog attached to Project). Never log secrets, escape device text.
 - Whether one damaged scan should stop the whole project from loading, as it does now.
 - Whether device names may show in file names under `configs/` once files are encrypted (Milestone 3).
@@ -150,8 +149,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - No validation: IP, hostname, username, privilege 0-15, port, timeout, project name, field types, duplicate IPs.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
-- A failed `create_project` leaves the folder behind, so trying again raises FileExistsError.
-- `create_project` doesn't save hosts, only the config. Call `save_hosts` after.
+- A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
+- `Project.create` doesn't save hosts, only the config. Call `save_hosts` after.
 - `Scan.write` can't save datetime or Path fields of subclasses, and tuples load back as lists.
 
 ### Notes for part B
