@@ -11,7 +11,7 @@ import pytest
 from netaudit import project as project_module
 from netaudit.host import Host
 from netaudit.log import LogLevel, ProjectLog
-from netaudit.project import Project, ProjectConfig
+from netaudit.project import Project, ProjectConfig, ProjectIssue
 from netaudit.scans.scans import SCAN_TYPES, Scan
 
 
@@ -411,3 +411,33 @@ def test_create_missing_folders_with_nothing_missing_does_nothing(created: Proje
     before = list(created.log.entries)
     created.create_missing_folders()
     assert created.log.entries == before
+
+
+def test_new_and_complete_project_has_no_issues(created: Project) -> None:
+    """Nothing is wrong with a project that was just created, or loaded with all its folders."""
+    assert created.issues == {}
+    assert Project.load(created.path).issues == {}
+
+
+def test_load_reports_missing_folders_as_an_issue(created: Project) -> None:
+    """The menu can see which folders are missing without reading the log."""
+    (created.path / "configs").rmdir()
+    (created.path / "scans").rmdir()
+    loaded = Project.load(created.path)
+    assert loaded.issues == {ProjectIssue.MISSING_FOLDER: ["configs", "scans"]}
+
+
+def test_recreated_logs_folder_is_not_an_issue(created: Project) -> None:
+    """Load fixes a missing logs folder itself, so nothing is left to decide."""
+    for file in (created.path / "logs").iterdir():
+        file.unlink()
+    (created.path / "logs").rmdir()
+    assert Project.load(created.path).issues == {}
+
+
+def test_create_missing_folders_clears_the_issue(created: Project) -> None:
+    """Once the folders exist, the issue is gone."""
+    (created.path / "scans").rmdir()
+    loaded = Project.load(created.path)
+    loaded.create_missing_folders()
+    assert loaded.issues == {}

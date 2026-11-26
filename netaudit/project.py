@@ -1,6 +1,7 @@
 """Project handling, including creation, loading and deletion."""
 
 import json
+from enum import Enum
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from datetime import datetime
@@ -12,6 +13,12 @@ from netaudit.scans.scans import SCAN_TYPES, Scan
 
 # The folders every project has. Create makes them, load warns about missing ones.
 PROJECT_FOLDERS = ("logs", "configs", "scans")
+
+
+class ProjectIssue(Enum):
+    """A kind of problem a loaded project can have. The menu decides what to do about each one."""
+
+    MISSING_FOLDER = "MISSING_FOLDER"  # details: the names of the missing folders, not logs (load recreates it)
 
 
 def current_timestamp() -> str:
@@ -55,6 +62,7 @@ class Project:
     hosts: list[Host] = field(default_factory=list)
     scans: list[Scan] = field(default_factory=list)
     log: ProjectLog = field(init=False)  # made from path in __post_init__, not given by the caller
+    issues: dict[ProjectIssue, list[str]] = field(default_factory=dict)  # found by load, cleared when fixed
     #TO ADD: encryption handler.
 
     def __post_init__(self) -> None:
@@ -117,7 +125,8 @@ class Project:
         """Return the project stored in path, with its configuration and any other data.
 
         If any part can't be loaded this raises, and no project is returned.
-        A missing logs folder is created. Every missing folder is logged as a warning."""
+        A missing logs folder is created. Every missing folder is logged as a warning,
+        and the others are added to project.issues."""
         config = ProjectConfig.load(path / "config.json")
         project = cls(path, config)
         project.load_hosts()
@@ -132,7 +141,11 @@ class Project:
             else:
                 message = f"Folder {folder}/ is missing"
             project.log.write(LogEntry(message, LogCategory.PROJECT, LogLevel.WARNING))
+        still_missing = [folder for folder in missing if folder != "logs"]
+        if still_missing:
+            project.issues[ProjectIssue.MISSING_FOLDER] = still_missing
         project.log.write(LogEntry("Project loaded", LogCategory.PROJECT))
+        # To add: Menu allows for multiple options on how to fix the missing folders
         return project
 
     def missing_folders(self) -> list[str]:
@@ -140,7 +153,8 @@ class Project:
         return [folder for folder in PROJECT_FOLDERS if not (self.path / folder).is_dir()]
 
     def create_missing_folders(self) -> None:
-        """Create the project folders that don't exist, and log each one."""
+        """Create the project folders that don't exist, log each one, and clear the issue."""
         for folder in self.missing_folders():
             (self.path / folder).mkdir()
             self.log.write(LogEntry(f"Created missing folder {folder}/", LogCategory.PROJECT))
+        self.issues.pop(ProjectIssue.MISSING_FOLDER, None)  # None: no error if it isn't there

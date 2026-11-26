@@ -83,8 +83,8 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 75 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: load recreates `logs/` and warns about missing folders; `create_missing_folders` creates them.
+  Expected: 79 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: `project.issues` (ProjectIssue enum), filled by load, cleared by `create_missing_folders`.
 - Next step: log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
@@ -107,7 +107,7 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Create without overwriting, save and load config and hosts, write and load scans
   - [ ] Check paths, clear errors for damaged files
 - [ ] D. Menu (`netaudit/menu.py`, doesn't exist yet): create, load, show, add and remove hosts
-  - After load, if `project.missing_folders()` isn't empty: ask to create them
+  - After load, if `ProjectIssue.MISSING_FOLDER in project.issues`: ask to create them
     (`create_missing_folders()`), continue without them, or exit.
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
@@ -151,6 +151,9 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Only one netaudit per open project: two would each have their own entries and hosts in memory.
 - PROJECT_FOLDERS lists the project folders. Load creates a missing `logs/` itself and logs a warning for
   every missing folder. The others are only created when the user chooses to (asked by the menu).
+- `project.issues`: dict from ProjectIssue (a fixed Enum) to details, for problems found by load that the menu
+  must handle. The log is the history, `issues` the current state. Each fix removes its issue.
+  Added early on purpose (decided by me), with one kind so far. Damaged scans may become the next kind.
 - Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
