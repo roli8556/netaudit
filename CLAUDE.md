@@ -84,9 +84,8 @@ Update this section in the commit of every step.
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
   Expected: 130 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: Host validates IP (IPv4 only), privilege level 0-15, and non-empty username and password.
-- Next step: more validation (hostname and username characters, port and timeout, project name, duplicate IPs),
-  then the menu.
+- Last finished step: hostname and privilege level are None until read from the device.
+- Next step: more validation (username characters, port and timeout, project name, duplicate IPs), then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -134,7 +133,9 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Key from the password: Argon2id. Encryption: Fernet. One salt per project.
 - Passwords: at least 12 characters, no recovery. Keep the key in memory, never the project password.
 - Only the menu uses input() and print(). Project never asks the user anything.
-- `privilege_level` is the SSH user's level at login (default 1). It is not a write protection.
+- `hostname` and `privilege_level` are read from the device after login, not typed in. None = not read yet.
+  `privilege_level` is the SSH user's level at login (0-15, checked when set). It is not a write protection.
+- Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
 - `available_commands` is a list, None = not checked (test with `is None`). It is information only: the commands
   netaudit sends come from a fixed list in the code, never from a project file.
 - SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
@@ -171,7 +172,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Deleting projects: in the project.py docstring, not planned yet.
 
 ### Known gaps (all reproduced)
-- Not validated yet: hostname, characters in the username, port, timeout, project name, duplicate IPs,
+- Not validated yet: hostname (with the parser), characters in the username, port, timeout, project name, duplicate IPs,
   and the types of the other fields.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
@@ -186,6 +187,10 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Ignore `*.enc` and `*.enc.tmp` in Git. Remove the xfail marker when the plain-text test passes.
 
 ### Notes for Milestone 2
+- Privilege level: `show privilege` prints "Current privilege level is N". It is refused at level 0, so treat a
+  refusal as level 0 or restricted. The prompt hints too: `>` = 0-1, `#` = 2-15.
+- Hostname: device output is untrusted. Check it against Cisco's rules (starts with a letter, letters, digits and
+  `-`, at most 63 characters) before storing it, and again before using it in file names (Milestone 3).
 - Fill `available_commands` by reading `show ?`. Never test a command by running it if it could change something.
 - With AAA command authorization a listed command can still be refused, so handle refusals when running it.
 - Below privilege 15 `show running-config` can be incomplete. Never report "passed" from incomplete data.

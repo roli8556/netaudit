@@ -50,7 +50,7 @@ def test_projects_do_not_share_hosts() -> None:
     """A host added to one project doesn't appear in another."""
     bank = Project(Path("bank"), ProjectConfig("bank"))
     school = Project(Path("school"), ProjectConfig("school"))
-    host = Host("192.0.2.11", "core", "auditor", "fake-login")
+    host = Host("192.0.2.11", "auditor", "fake-login")
     bank.hosts.append(host)
     assert bank.hosts == [host]
     assert school.hosts == []
@@ -69,7 +69,7 @@ def test_projects_do_not_share_scans() -> None:
 def test_printing_a_project_hides_host_passwords() -> None:
     """Printing a whole project doesn't leak the passwords inside it."""
     project = Project(Path("office"), ProjectConfig("office"))
-    project.hosts.append(Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable"))
+    project.hosts.append(Host("192.0.2.11", "auditor", "fake-login", enable_password="fake-enable"))
     assert "fake-login" not in repr(project)
     assert "fake-enable" not in repr(project)
 
@@ -140,7 +140,7 @@ def known_fake_scan(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def host() -> Host:
     """A host with fake passwords."""
-    return Host("192.0.2.11", "core", "auditor", "fake-login", "fake-enable")
+    return Host("192.0.2.11", "auditor", "fake-login", enable_password="fake-enable")
 
 
 def test_create_makes_the_folders_and_config(created: Project) -> None:
@@ -152,7 +152,7 @@ def test_create_makes_the_folders_and_config(created: Project) -> None:
 
 def test_hosts_survive_save_and_load(created: Project, host: Host) -> None:
     """All fields are restored, also the passwords and a missing enable password."""
-    no_enable = Host("192.0.2.12", "access", "auditor", "fake-login", privilege_level=15)
+    no_enable = Host("192.0.2.12", "auditor", "fake-login", privilege_level=15)
     created.hosts = [host, no_enable]
     created.save_hosts()
     created.hosts = []
