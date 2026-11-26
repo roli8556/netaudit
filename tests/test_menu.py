@@ -178,12 +178,12 @@ def test_create_error_is_shown_and_start_menu_continues(
 def test_project_menu_refuses_other_choices(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    """Only q works in the project menu for now."""
+    """Only the listed choices work in the project menu."""
     menu = Menu()
     menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
-    fake_input(monkeypatch, ["1", "q"])
+    fake_input(monkeypatch, ["2", "q"])
     menu.project_menu()
-    assert "Please type q." in capsys.readouterr().err
+    assert "Please type 1 or q." in capsys.readouterr().err
     assert menu.project is None
 
 
@@ -245,6 +245,45 @@ def test_load_project_from_the_start_menu(
     out = capsys.readouterr().out
     assert out.count("Start menu") == 2
     assert out.endswith("Bye\n")
+
+
+def test_show_hosts_without_hosts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """An empty project says so instead of printing an empty table."""
+    menu = Menu()
+    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    menu.show_hosts()
+    out = capsys.readouterr().out
+    assert "No hosts yet." in out
+    assert "IP" not in out
+
+
+def test_show_hosts_never_shows_passwords(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
+    """Each host is a row with - for what isn't read yet, and no password appears anywhere."""
+    saved.add_host(Host("192.0.2.12", "admin", "fake-login-2", hostname="SW2", enable_password="fake-enable",
+                        privilege_level=15))
+    menu = Menu()
+    menu.project = saved
+    menu.show_hosts()
+    captured = capsys.readouterr()
+    lines = captured.out.splitlines()
+    assert lines[1].split() == ["IP", "Username", "Hostname", "Privilege", "Enable", "password"]
+    assert lines[2].split() == ["192.0.2.11", "auditor", "-", "-", "not", "set"]
+    assert lines[3].split() == ["192.0.2.12", "admin", "SW2", "15", "set"]
+    for password in ["fake-login", "fake-enable"]:  # fake-login is also part of fake-login-2
+        assert password not in captured.out + captured.err
+
+
+def test_project_menu_shows_hosts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Choice 1 shows the hosts, then the project menu comes back."""
+    fake_input(monkeypatch, [str(saved.path), "1", "q"])
+    Menu().load_project_menu()
+    out = capsys.readouterr().out
+    assert "192.0.2.11" in out
+    assert out.count("Project: office") == 2
 
 
 def test_load_missing_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

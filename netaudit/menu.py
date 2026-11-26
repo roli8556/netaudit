@@ -82,12 +82,31 @@ class Menu:
         while self.project is not None:
             print()
             print(f"Project: {self.project.config.name} ({len(self.project.hosts)} hosts)")
+            print("  1. Show hosts")
             print("  q. Close project")
             choice = self.ask("Choose: ")
-            if choice.lower() == "q":
+            if choice == "1":
+                self.show_hosts()
+            elif choice.lower() == "q":
                 self.project = None
             else:
-                print("Please type q.", file=sys.stderr)
+                print("Please type 1 or q.", file=sys.stderr)
+
+    def show_hosts(self) -> None:
+        """Print the open project's hosts as a table.
+
+        Passwords are never shown, only whether there is an enable password."""
+        print()
+        if not self.project.hosts:
+            print("No hosts yet.")
+            return
+        print(f"{'IP':<17}{'Username':<17}{'Hostname':<17}{'Privilege':<11}Enable password")
+        for host in self.project.hosts:
+            # None means not read from the device yet. The hostname is device text, but Host only accepts valid ones.
+            hostname = host.hostname if host.hostname is not None else "-"
+            level = str(host.privilege_level) if host.privilege_level is not None else "-"
+            enable = "set" if host.enable_password is not None else "not set"
+            print(f"{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable}")
 
     def load_project_menu(self) -> None:
         """Ask for a project's folder, load it, deal with its issues, and open its project menu.
