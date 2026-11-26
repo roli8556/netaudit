@@ -83,9 +83,10 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 199 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: `Project.add_host` and `remove_host` (save right away, no duplicate IPs).
-- Next step: the menu (part D), starting with the start menu in `netaudit/menu.py`.
+  Expected: 214 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: menu step 1, the Menu class with the start menu (only Exit works) and Ctrl+C handling.
+- Next step: menu step 2, create a project, then an empty project menu (only Close).
+  Then: 3 load (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -106,14 +107,15 @@ Order: A, C, D (structure), then B (encryption), then E.
 - [ ] C. Project files
   - [x] Create without overwriting, save and load config and hosts, write and load scans
   - [ ] Check paths, clear errors for damaged files
-- [ ] D. Menu (`netaudit/menu.py`, doesn't exist yet): create, load, show, add and remove hosts
+- [ ] D. Menu (`netaudit/menu.py`): create, load, show, add and remove hosts, show log
   - After load, if `ProjectIssue.MISSING_FOLDER in project.issues`: ask to create them
     (`create_missing_folders()`), continue without them, or exit.
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
-- `main.py`: only prints the name. It will only start the menu.
+- `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
+- `netaudit/menu.py`: Menu, the text menu (start menu so far).
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
   load, add and remove hosts).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
@@ -134,6 +136,10 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Key from the password: Argon2id. Encryption: Fernet. One salt per project.
 - Passwords: at least 12 characters, no recovery. Keep the key in memory, never the project password.
 - Only the menu uses input() and print(). Project never asks the user anything.
+- Menu is a class (decided by me): `self.project` is the open project, one method per menu and action.
+  `ask` and `choose` handle all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
+  Passwords with getpass. Port and timeout are asked with the default shown. Until part B, create and load
+  warn that the project isn't encrypted. Device text is made printable before it is shown.
 - `hostname` and `privilege_level` are read from the device after login, not typed in. None = not read yet.
   `privilege_level` is the SSH user's level at login (0-15, checked when set). It is not a write protection.
 - Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
