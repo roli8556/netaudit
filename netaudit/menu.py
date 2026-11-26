@@ -1,8 +1,10 @@
 """The text menu: the only part of netaudit that talks to the user."""
 
 import sys
+from getpass import getpass
 from pathlib import Path
 
+from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig, ProjectIssue
 
 # Shown after creating or loading a project, until part B encrypts the files.
@@ -83,14 +85,21 @@ class Menu:
             print()
             print(f"Project: {self.project.config.name} ({len(self.project.hosts)} hosts)")
             print("  1. Show hosts")
+            print("  2. Add host")
             print("  q. Close project")
             choice = self.ask("Choose: ")
-            if choice == "1":
-                self.show_hosts()
-            elif choice.lower() == "q":
-                self.project = None
-            else:
-                print("Please type 1 or q.", file=sys.stderr)
+            # Caught here, not in run, so an error keeps the user in the project menu with the project open
+            try:
+                if choice == "1":
+                    self.show_hosts()
+                elif choice == "2":
+                    self.add_host_menu()
+                elif choice.lower() == "q":
+                    self.project = None
+                else:
+                    print("Please type 1, 2 or q.", file=sys.stderr)
+            except (ValueError, OSError) as error:
+                print(f"Error: {error}", file=sys.stderr)
 
     def show_hosts(self) -> None:
         """Print the open project's hosts as a table.
@@ -108,6 +117,23 @@ class Menu:
             enable = "set" if host.enable_password is not None else "not set"
             accept_key = "yes" if host.accept_unknown_host_key else "no"
             print(f"{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
+
+    def add_host_menu(self) -> None:
+        """Ask for a new host's IP, SSH login and host key choice, and add it to the open project.
+
+        Raises ValueError for a bad answer or an IP that is already in the project (Host and
+        add_host check them), and OSError if hosts.json can't be saved. Nothing is added then."""
+        print()
+        print("Add host")
+        ip = self.ask("IP address: ")
+        username = self.ask("SSH username: ")
+        password = getpass("SSH password: ")  # not stripped: spaces can be part of a password
+        answer = input("Accept an unknown SSH host key without asking? [y/N]: ").strip().lower()
+        if answer not in ("", "y", "n"):
+            raise ValueError(f"{answer!r} is not y or n")
+        host = Host(ip, username, password, accept_unknown_host_key=(answer == "y"))
+        self.project.add_host(host)
+        print(f"Added host {host.ip}")
 
     def load_project_menu(self) -> None:
         """Ask for a project's folder, load it, deal with its issues, and open its project menu.

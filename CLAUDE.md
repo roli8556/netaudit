@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 301 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: menu step 5a, `accept_unknown_host_key` on Host, shown by show hosts.
-- Next step: menu step 5b, the add host menu (IP, username, password, accept unknown host key). Then 6 remove host, 7 show log.
+  Expected: 311 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: menu step 5b, add host (IP, username, password with getpass, accept unknown host key [y/N]).
+- Next step: menu step 6, remove host. Then 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -109,13 +109,14 @@ Order: A, C, D (structure), then B (encryption), then E.
 - [ ] D. Menu (`netaudit/menu.py`): create, load, show, add and remove hosts, show log
   - [x] Start menu, create project, load project (with the missing-folders question)
   - [x] Show hosts
-  - [ ] Add host, remove host, show log
+  - [x] Add host
+  - [ ] Remove host, show log
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
-- `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show hosts and close),
+- `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show hosts, add host and close),
   and `is_safe_folder_name`.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
   load, add and remove hosts).
@@ -140,7 +141,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Menu is a class (decided by me): `self.project` is the open project, one method per menu and action.
   Each menu prints its own options, reads the choice with `ask`, and calls a method per choice
   (e.g. `create_project_menu`). `q` (or `Q`) exits or goes back. `ask` handles all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
-  Passwords with getpass. Port and timeout are asked with the default shown. Until part B, create and load
+  `project_menu` catches them too, so an error there keeps the project open (put the except where the program
+  should carry on). Passwords with getpass. Port and timeout are asked with the default shown. Until part B, create and load
   warn that the project isn't encrypted. Device text is made printable before it is shown.
 - A new project's folder is location/name, so the menu only accepts names that are safe folder names
   (`is_safe_folder_name`: letters, digits, spaces, - and _, no reserved Windows names). The location must exist.

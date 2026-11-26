@@ -15,6 +15,11 @@ def fake_input(monkeypatch: pytest.MonkeyPatch, answers: list[str]) -> None:
     monkeypatch.setattr("builtins.input", lambda prompt="": next(remaining))
 
 
+def fake_getpass(monkeypatch: pytest.MonkeyPatch, password: str) -> None:
+    """Make the menu's getpass() return this password, as if the user typed it."""
+    monkeypatch.setattr("netaudit.menu.getpass", lambda prompt="": password)
+
+
 def test_choosing_exit_ends_the_menu(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """Exit stops run and says goodbye."""
     fake_input(monkeypatch, ["q"])
@@ -181,9 +186,9 @@ def test_project_menu_refuses_other_choices(
     """Only the listed choices work in the project menu."""
     menu = Menu()
     menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
-    fake_input(monkeypatch, ["2", "q"])
+    fake_input(monkeypatch, ["3", "q"])
     menu.project_menu()
-    assert "Please type 1 or q." in capsys.readouterr().err
+    assert "Please type 1, 2 or q." in capsys.readouterr().err
     assert menu.project is None
 
 
@@ -284,6 +289,61 @@ def test_project_menu_shows_hosts(
     out = capsys.readouterr().out
     assert "192.0.2.11" in out
     assert out.count("Project: office") == 2
+
+
+@pytest.mark.parametrize("answer, accept", [("", False), ("n", False), ("N", False), ("y", True), (" Y ", True)])
+def test_add_host_saves_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project, answer: str, accept: bool
+) -> None:
+    """The new host is added and saved, Enter means no, and the password is never printed."""
+    fake_input(monkeypatch, ["192.0.2.20", "admin", answer])
+    fake_getpass(monkeypatch, "fake-new-login")
+    menu = Menu()
+    menu.project = saved
+    menu.add_host_menu()
+    captured = capsys.readouterr()
+    assert "Added host 192.0.2.20" in captured.out
+    assert "fake-new-login" not in captured.out + captured.err
+    reloaded = Project.load(saved.path)
+    assert reloaded.hosts[-1] == Host("192.0.2.20", "admin", "fake-new-login", accept_unknown_host_key=accept)
+
+
+@pytest.mark.parametrize(
+    "answers, password, message",
+    [
+        (["192.0.2.999", "admin", ""], "fake-new-login", "Invalid IPv4 address"),
+        (["192.0.2.11", "admin", ""], "fake-new-login", "already exists"),  # the IP of the saved host
+        (["192.0.2.20", "admin", ""], "", "SSH password cannot be empty"),
+        (["192.0.2.20", "admin", "yes"], "fake-new-login", "is not y or n"),
+    ],
+)
+def test_add_host_with_a_bad_answer_adds_nothing(
+    monkeypatch: pytest.MonkeyPatch, saved: Project, answers: list[str], password: str, message: str
+) -> None:
+    """A bad answer raises a clear ValueError, and the project and hosts.json keep only the saved host."""
+    fake_input(monkeypatch, answers)
+    fake_getpass(monkeypatch, password)
+    menu = Menu()
+    menu.project = saved
+    with pytest.raises(ValueError, match=message):
+        menu.add_host_menu()
+    assert len(saved.hosts) == 1
+    assert len(Project.load(saved.path).hosts) == 1
+
+
+def test_error_in_project_menu_keeps_the_project_open(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """A bad IP shows an error and the project menu again, without showing the password."""
+    fake_input(monkeypatch, ["2", "999.0.0.1", "admin", "", "q"])
+    fake_getpass(monkeypatch, "fake-new-login")
+    menu = Menu()
+    menu.project = saved
+    menu.project_menu()
+    captured = capsys.readouterr()
+    assert "Error: Invalid IPv4 address" in captured.err
+    assert "fake-new-login" not in captured.out + captured.err
+    assert captured.out.count("Project: office") == 2
 
 
 def test_load_missing_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
