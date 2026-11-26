@@ -10,6 +10,7 @@ import pytest
 
 from netaudit import project as project_module
 from netaudit.host import Host
+from netaudit.log import ProjectLog
 from netaudit.project import Project, ProjectConfig
 from netaudit.scans.scans import SCAN_TYPES, Scan
 
@@ -318,3 +319,34 @@ def test_failed_load_changes_nothing(created: Project, host: Host, tmp_path: Pat
     assert created.path == tmp_path / "bank"
     assert created.config.name == "bank"
     assert created.hosts == [host]
+
+
+def test_new_project_has_a_log_but_no_file(tmp_path: Path) -> None:
+    """Making a Project object attaches its log without touching the disk."""
+    project = Project(tmp_path, ProjectConfig("office"))
+    assert project.log.path == tmp_path / "logs" / "project.log"
+    assert project.log.entries == []
+    assert not project.log.path.exists()
+
+
+def test_create_logs_that_the_project_was_created(created: Project) -> None:
+    """The first entry of a new project is its creation, in memory and in the file."""
+    assert [e.message for e in created.log.entries] == ["Project created"]
+    fresh = ProjectLog(created.log.path)
+    fresh.load()
+    assert fresh.entries == created.log.entries
+
+
+def test_load_reads_the_log_and_logs_the_load(created: Project) -> None:
+    """Loading brings back earlier entries and adds one for this load."""
+    loaded = Project.load(created.path)
+    assert [e.message for e in loaded.log.entries] == ["Project created", "Project loaded"]
+
+
+def test_failed_load_does_not_write_to_the_log(created: Project) -> None:
+    """A project that can't be loaded isn't logged as loaded."""
+    (created.path / "hosts.json").write_text("broken", encoding="utf-8")
+    with pytest.raises(ValueError):
+        Project.load(created.path)
+    created.log.load()
+    assert [e.message for e in created.log.entries] == ["Project created"]

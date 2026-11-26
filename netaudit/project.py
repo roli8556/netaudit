@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 from netaudit.host import Host
+from netaudit.log import LogCategory, LogEntry, ProjectLog
 from netaudit.scans.scans import SCAN_TYPES, Scan
 
 
@@ -49,7 +50,12 @@ class Project:
     config: ProjectConfig
     hosts: list[Host] = field(default_factory=list)
     scans: list[Scan] = field(default_factory=list)
-    #TO ADD: logging object, encryption handler.
+    log: ProjectLog = field(init=False)  # made from path in __post_init__, not given by the caller
+    #TO ADD: encryption handler.
+
+    def __post_init__(self) -> None:
+        """Attach the project's log. This doesn't touch the disk."""
+        self.log = ProjectLog(self.path / "logs" / "project.log")
 
     def save_hosts(self) -> None:
         """Save the hosts, including their passwords, to a JSON file in the project directory."""
@@ -98,7 +104,9 @@ class Project:
         (path / "configs").mkdir()
         (path / "scans").mkdir()
         config.save(path / "config.json")
-        return cls(path, config)
+        project = cls(path, config)
+        project.log.write(LogEntry("Project created", LogCategory.PROJECT))
+        return project
 
     @classmethod
     def load(cls, path: Path) -> "Project":
@@ -109,4 +117,6 @@ class Project:
         project = cls(path, config)
         project.load_hosts()
         project.load_scans()
+        project.log.load()
+        project.log.write(LogEntry("Project loaded", LogCategory.PROJECT))
         return project

@@ -83,10 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 64 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log step 2, ProjectLog (entries in memory, write appends to the file, load reads it).
-- Next step: log step 3, attach ProjectLog to Project, log create and load. Then filtering (`find`).
-  Then validation, starting with the IP check in Host, then the menu.
+  Expected: 68 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log step 3, Project has a log, and `create` and `load` write an entry.
+- Next step: log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -113,7 +112,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 
 ### The code today
 - `main.py`: only prints the name. It will only start the menu.
-- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans; create, save, load).
+- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log; create, save, load).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
 - `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file).
@@ -159,6 +158,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 ### Known gaps (all reproduced)
 - No validation: IP, hostname, username, privilege 0-15, port, timeout, project name, field types, duplicate IPs.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
+- A project without its `logs/` folder can't be loaded: writing "Project loaded" raises FileNotFoundError.
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
 - `Project.create` doesn't save hosts, only the config. Call `save_hosts` after.
