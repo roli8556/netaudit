@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 68 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log step 3, Project has a log, and `create` and `load` write an entry.
-- Next step: log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
+  Expected: 73 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: load recreates `logs/` and warns about missing project folders (`missing_folders`).
+- Next step: `create_missing_folders` in Project. Then log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -107,6 +107,7 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Create without overwriting, save and load config and hosts, write and load scans
   - [ ] Check paths, clear errors for damaged files
 - [ ] D. Menu (`netaudit/menu.py`, doesn't exist yet): create, load, show, add and remove hosts
+  - After load, if `project.missing_folders()` isn't empty: ask to create them, continue without them, or exit.
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
@@ -147,6 +148,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
   `write` adds a line break first if the file ends with a half-written line.
 - Only one netaudit per open project: two would each have their own entries and hosts in memory.
+- PROJECT_FOLDERS lists the project folders. Load creates a missing `logs/` itself and logs a warning for
+  every missing folder. The others are only created when the user chooses to (asked by the menu).
 - Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
@@ -158,7 +161,6 @@ Order: A, C, D (structure), then B (encryption), then E.
 ### Known gaps (all reproduced)
 - No validation: IP, hostname, username, privilege 0-15, port, timeout, project name, field types, duplicate IPs.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
-- A project without its `logs/` folder can't be loaded: writing "Project loaded" raises FileNotFoundError.
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
 - `Project.create` doesn't save hosts, only the config. Call `save_hosts` after.

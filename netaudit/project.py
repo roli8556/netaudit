@@ -6,8 +6,12 @@ from pathlib import Path
 from datetime import datetime
 
 from netaudit.host import Host
-from netaudit.log import LogCategory, LogEntry, ProjectLog
+from netaudit.log import LogCategory, LogEntry, LogLevel, ProjectLog
 from netaudit.scans.scans import SCAN_TYPES, Scan
+
+
+# The folders every project has. Create makes them, load warns about missing ones.
+PROJECT_FOLDERS = ("logs", "configs", "scans")
 
 
 def current_timestamp() -> str:
@@ -101,9 +105,8 @@ class Project:
 
         Raises FileExistsError if the directory already exists."""
         path.mkdir(parents=True)
-        (path / "logs").mkdir()
-        (path / "configs").mkdir()
-        (path / "scans").mkdir()
+        for folder in PROJECT_FOLDERS:
+            (path / folder).mkdir()
         config.save(path / "config.json")
         project = cls(path, config)
         project.log.write(LogEntry("Project created", LogCategory.PROJECT))
@@ -113,11 +116,25 @@ class Project:
     def load(cls, path: Path) -> "Project":
         """Return the project stored in path, with its configuration and any other data.
 
-        If any part can't be loaded this raises, and no project is returned."""
+        If any part can't be loaded this raises, and no project is returned.
+        A missing logs folder is created. Every missing folder is logged as a warning."""
         config = ProjectConfig.load(path / "config.json")
         project = cls(path, config)
         project.load_hosts()
         project.load_scans()
+        missing = project.missing_folders()
+        if "logs" in missing:
+            (path / "logs").mkdir()
         project.log.load()
+        for folder in missing:
+            if folder == "logs":
+                message = "Folder logs/ was missing and was created"
+            else:
+                message = f"Folder {folder}/ is missing"
+            project.log.write(LogEntry(message, LogCategory.PROJECT, LogLevel.WARNING))
         project.log.write(LogEntry("Project loaded", LogCategory.PROJECT))
         return project
+
+    def missing_folders(self) -> list[str]:
+        """Return the names of the project folders that don't exist, for example ["configs"]."""
+        return [folder for folder in PROJECT_FOLDERS if not (self.path / folder).is_dir()]

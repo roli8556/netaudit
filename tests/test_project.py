@@ -10,7 +10,7 @@ import pytest
 
 from netaudit import project as project_module
 from netaudit.host import Host
-from netaudit.log import ProjectLog
+from netaudit.log import LogLevel, ProjectLog
 from netaudit.project import Project, ProjectConfig
 from netaudit.scans.scans import SCAN_TYPES, Scan
 
@@ -350,3 +350,45 @@ def test_failed_load_does_not_write_to_the_log(created: Project) -> None:
         Project.load(created.path)
     created.log.load()
     assert [e.message for e in created.log.entries] == ["Project created"]
+
+
+def test_new_project_is_missing_no_folders(created: Project) -> None:
+    """Create makes every project folder."""
+    assert created.missing_folders() == []
+
+
+def test_missing_folders_are_listed(created: Project) -> None:
+    """Only the folders that don't exist are returned."""
+    (created.path / "configs").rmdir()
+    (created.path / "scans").rmdir()
+    assert created.missing_folders() == ["configs", "scans"]
+
+
+def test_load_recreates_logs_and_warns(created: Project) -> None:
+    """A project without its logs folder still loads, and the log says what happened."""
+    for file in (created.path / "logs").iterdir():
+        file.unlink()
+    (created.path / "logs").rmdir()
+    loaded = Project.load(created.path)
+    assert (created.path / "logs").is_dir()
+    assert [e.message for e in loaded.log.entries] == [
+        "Folder logs/ was missing and was created",
+        "Project loaded",
+    ]
+    assert loaded.log.entries[0].level == LogLevel.WARNING
+
+
+def test_load_warns_about_other_missing_folders_without_creating_them(created: Project) -> None:
+    """Folders other than logs are only reported. Creating them is the user's choice."""
+    (created.path / "scans").rmdir()
+    loaded = Project.load(created.path)
+    assert not (created.path / "scans").exists()
+    assert loaded.log.entries[-2].message == "Folder scans/ is missing"
+    assert loaded.log.entries[-2].level == LogLevel.WARNING
+
+
+def test_load_of_a_folder_that_is_not_a_project_creates_nothing(tmp_path: Path) -> None:
+    """Without config.json, load fails before it creates any folder."""
+    with pytest.raises(FileNotFoundError):
+        Project.load(tmp_path)
+    assert list(tmp_path.iterdir()) == []
