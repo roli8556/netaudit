@@ -62,10 +62,15 @@ class ProjectConfig:
 
     @staticmethod
     def load(path: Path) -> "ProjectConfig":
-        """Load a project configuration file from JSON format."""
+        """Load a project configuration file from JSON format.
+
+        Raises ValueError naming the file if it is damaged, and FileNotFoundError if it is missing."""
         text = path.read_text(encoding="utf-8")
-        data = json.loads(text)
-        return ProjectConfig(**data)
+        try:
+            data = json.loads(text)
+            return ProjectConfig(**data)
+        except (ValueError, KeyError, TypeError) as error:  # JSONDecodeError is a ValueError
+            raise ValueError(f"{path} is damaged: {error}") from error
 
 
 
@@ -98,17 +103,22 @@ class Project:
         #TO add: encrypt before writing (part B), this is plain text for now
 
     def load_hosts(self) -> None:
-        """Load the hosts from a JSON file in the project directory."""
+        """Load the hosts from a JSON file in the project directory.
+
+        Raises ValueError naming the file if it is damaged, and then self.hosts is unchanged."""
         hosts_path = self.path / "hosts.json"
         if hosts_path.exists():
             text = hosts_path.read_text(encoding="utf-8")
-            data = json.loads(text)
-            if not isinstance(data, list):
-                raise ValueError(f"{hosts_path} does not contain a list of hosts")
-            hosts = [Host(**host_data) for host_data in data]
-            ips = [host.ip for host in hosts]
-            if len(ips) != len(set(ips)):  # a set keeps each IP once, so it is shorter if one repeats
-                raise ValueError(f"{hosts_path} contains the same IP address more than once")
+            try:
+                data = json.loads(text)
+                if not isinstance(data, list):
+                    raise ValueError("it does not contain a list of hosts")
+                hosts = [Host(**host_data) for host_data in data]
+                ips = [host.ip for host in hosts]
+                if len(ips) != len(set(ips)):  # a set keeps each IP once, so it is shorter if one repeats
+                    raise ValueError("it contains the same IP address more than once")
+            except (ValueError, KeyError, TypeError) as error:
+                raise ValueError(f"{hosts_path} is damaged: {error}") from error
             self.hosts = hosts
         else:
             self.hosts = []
@@ -147,20 +157,27 @@ class Project:
         return host
 
     def load_scans(self) -> None:
-        """Load the scans from the scans directory in the project directory."""
+        """Load the scans from the scans directory in the project directory.
+
+        Raises ValueError naming the file if one is damaged, and then self.scans is unchanged."""
         scans_path = self.path / "scans"
         scans = []
         # sorted by file name means oldest first, as the name starts with the time
         for scan_file in sorted(scans_path.glob("*.scan.json")):
             text = scan_file.read_text(encoding="utf-8")
-            data = json.loads(text)
-            scan_type = data.pop("type")
-            performed_at = datetime.fromisoformat(data.pop("performed_at"))
-            data["path"] = scan_file  # never trust a path from inside the file
-            if scan_type not in SCAN_TYPES:
-                raise ValueError(f"Unknown scan type {scan_type!r} in {scan_file}")
-            scan_class = SCAN_TYPES[scan_type]
-            scans.append(scan_class(performed_at=performed_at, **data))
+            try:
+                data = json.loads(text)
+                if not isinstance(data, dict):
+                    raise ValueError("it does not contain a scan")
+                scan_type = data.pop("type")
+                performed_at = datetime.fromisoformat(data.pop("performed_at"))
+                data["path"] = scan_file  # never trust a path from inside the file
+                if scan_type not in SCAN_TYPES:
+                    raise ValueError(f"unknown scan type {scan_type!r}")
+                scan_class = SCAN_TYPES[scan_type]
+                scans.append(scan_class(performed_at=performed_at, **data))
+            except (ValueError, KeyError, TypeError) as error:
+                raise ValueError(f"{scan_file} is damaged: {error}") from error
         self.scans = scans
 
     @classmethod

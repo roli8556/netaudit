@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 263 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: menu step 2, create a project from the menu, and a project menu with only Close.
-- Next step: menu step 3, load (with issues and clear errors). Then: (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
+  Expected: 283 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: damaged config, hosts and scan files give a ValueError that names the file.
+- Next step: menu step 3b, `load_project_menu` (folder checks, issues prompt). Then: (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -179,6 +179,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `project.issues`: dict from ProjectIssue (a fixed Enum) to details, for problems found by load that the menu
   must handle. The log is the history, `issues` the current state. Each fix removes its issue.
   Added early on purpose (decided by me), with one kind so far. Damaged scans may become the next kind.
+- Every kind of damage in config.json, hosts.json or a scan file is a ValueError "<file> is damaged: ...",
+  so the menu only has to catch ValueError and OSError. A missing config.json stays FileNotFoundError.
 - Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
 - Host checks its data in `__post_init__`, so a bad Host can't exist, from the menu or from hosts.json.
   IPv4 only for now (decided by me). Type checks come before value checks.
@@ -190,7 +192,6 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Deleting projects: in the project.py docstring, not planned yet.
 
 ### Known gaps (all reproduced)
-- Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
 - `Project.create` doesn't save hosts, only the config. Call `save_hosts` after.

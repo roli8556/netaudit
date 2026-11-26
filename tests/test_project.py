@@ -191,7 +191,7 @@ def test_load_hosts_twice_does_not_duplicate(created: Project, host: Host) -> No
 def test_load_hosts_rejects_broken_json(created: Project) -> None:
     """A damaged file is an error, not an empty project."""
     (created.path / "hosts.json").write_text("broken", encoding="utf-8")
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(ValueError, match="hosts.json is damaged"):
         created.load_hosts()
 
 
@@ -555,3 +555,67 @@ def test_load_hosts_with_duplicate_ips_raises(created: Project, host: Host) -> N
     created.save_hosts()
     with pytest.raises(ValueError):
         created.load_hosts()
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["not json", "[1, 2]", '{"name": "office", "colour": "red"}', '{"ssh_port": 22}', '{"name": "office", "ssh_port": 0}'],
+)
+def test_damaged_config_names_the_file(tmp_path: Path, content: str) -> None:
+    """Every kind of damage in config.json is a ValueError that says which file it is."""
+    path = tmp_path / "config.json"
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError, match="config.json is damaged"):
+        ProjectConfig.load(path)
+
+
+def test_missing_config_is_still_file_not_found(tmp_path: Path) -> None:
+    """A missing file isn't damage: it stays a FileNotFoundError."""
+    with pytest.raises(FileNotFoundError):
+        ProjectConfig.load(tmp_path / "config.json")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "not json",
+        '{"ip": "192.0.2.11"}',  # not a list
+        '["192.0.2.11"]',  # a list, but not of hosts
+        '[{"ip": "192.0.2.11", "ssh_username": "a", "ssh_password": "b", "colour": "red"}]',  # unknown field
+        '[{"ip": "192.0.2.11", "ssh_username": "a"}]',  # missing field
+        '[{"ip": "999.0.2.11", "ssh_username": "a", "ssh_password": "b"}]',  # invalid value
+    ],
+)
+def test_damaged_hosts_name_the_file_and_change_nothing(created: Project, host: Host, content: str) -> None:
+    """Every kind of damage in hosts.json is a ValueError naming the file, and the hosts in memory stay."""
+    created.hosts = [host]
+    (created.path / "hosts.json").write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError, match="hosts.json is damaged"):
+        created.load_hosts()
+    assert created.hosts == [host]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "not json",
+        "[]",  # not a scan
+        '{"performed_at": "2026-01-02T03:04:05"}',  # no type
+        '{"type": "Scan"}',  # no time
+        '{"type": "Scan", "performed_at": "yesterday"}',  # bad time
+        '{"type": "Scan", "performed_at": "2026-01-02T03:04:05", "colour": "red"}',  # unknown field
+        '{"type": "Nope", "performed_at": "2026-01-02T03:04:05"}',  # unknown type
+    ],
+)
+def test_damaged_scan_names_the_file(created: Project, content: str) -> None:
+    """Every kind of damage in a scan file is a ValueError that says which file it is."""
+    (created.path / "scans" / "bad.scan.json").write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError, match="bad.scan.json is damaged"):
+        created.load_scans()
+
+
+def test_load_of_damaged_project_names_the_file(created: Project) -> None:
+    """Project.load passes the clear error on."""
+    (created.path / "hosts.json").write_text("broken", encoding="utf-8")
+    with pytest.raises(ValueError, match="hosts.json is damaged"):
+        Project.load(created.path)
