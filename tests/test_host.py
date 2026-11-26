@@ -35,6 +35,19 @@ def test_available_commands_start_as_not_checked() -> None:
     assert host.available_commands is None
 
 
+def test_unknown_host_key_is_not_accepted_by_default() -> None:
+    """Trusting an unknown host key without asking must be chosen, never the default."""
+    assert Host("192.0.2.11", "auditor", "fake-login").accept_unknown_host_key is False
+    assert Host("192.0.2.11", "auditor", "fake-login", accept_unknown_host_key=True).accept_unknown_host_key is True
+
+
+@pytest.mark.parametrize("value", ["yes", "True", 1, 0, None])
+def test_accept_unknown_host_key_must_be_a_bool(value: object) -> None:
+    """Only True and False: anything else, as from a damaged hosts.json, is refused."""
+    with pytest.raises(ValueError, match="Accept unknown host key"):
+        Host("192.0.2.11", "auditor", "fake-login", accept_unknown_host_key=value)  # type: ignore[arg-type]
+
+
 def test_printing_a_host_hides_its_passwords() -> None:
     """Passwords never show up when a host is printed or formatted."""
     host = Host("192.0.2.11", "auditor", "fake-login", enable_password="fake-enable")

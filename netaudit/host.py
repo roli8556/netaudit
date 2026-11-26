@@ -17,6 +17,9 @@ class Host:
     privilege_level: int | None = None  # what the SSH user gets at login (0-15), None until read from the device
     # What the device says this login can run. Information only: never send commands taken from it
     available_commands: list[str] | None = None  # None means not checked yet
+    # True: on the first connection, answer yes to "trust this unknown SSH host key?" without asking.
+    # A host key that changed since it was stored is always refused, whatever this says (could be a MITM).
+    accept_unknown_host_key: bool = False
 
     def __post_init__(self) -> None:
         """Check host data for validity. Raises ValueError if invalid."""
@@ -55,6 +58,9 @@ class Host:
             for command in self.available_commands:
                 if not isinstance(command, str):
                     raise ValueError(f"Available commands must be text, got {command!r}")
+        # type() is not bool, so "yes" or 1 in a hosts.json is refused instead of being taken as true
+        if type(self.accept_unknown_host_key) is not bool:
+            raise ValueError(f"Accept unknown host key must be True or False, got {self.accept_unknown_host_key!r}")
 
 
 def is_valid_hostname(name: object) -> bool:

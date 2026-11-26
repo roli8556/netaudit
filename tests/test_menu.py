@@ -262,15 +262,15 @@ def test_show_hosts_without_hosts(
 def test_show_hosts_never_shows_passwords(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
     """Each host is a row with - for what isn't read yet, and no password appears anywhere."""
     saved.add_host(Host("192.0.2.12", "admin", "fake-login-2", hostname="SW2", enable_password="fake-enable",
-                        privilege_level=15))
+                        privilege_level=15, accept_unknown_host_key=True))
     menu = Menu()
     menu.project = saved
     menu.show_hosts()
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
-    assert lines[1].split() == ["IP", "Username", "Hostname", "Privilege", "Enable", "password"]
-    assert lines[2].split() == ["192.0.2.11", "auditor", "-", "-", "not", "set"]
-    assert lines[3].split() == ["192.0.2.12", "admin", "SW2", "15", "set"]
+    assert lines[1].split() == ["IP", "Username", "Hostname", "Privilege", "Enable", "password", "Accept", "unknown", "key"]
+    assert lines[2].split() == ["192.0.2.11", "auditor", "-", "-", "not", "set", "no"]
+    assert lines[3].split() == ["192.0.2.12", "admin", "SW2", "15", "set", "yes"]
     for password in ["fake-login", "fake-enable"]:  # fake-login is also part of fake-login-2
         assert password not in captured.out + captured.err
 

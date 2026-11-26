@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 293 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: menu step 4, show hosts (passwords never shown, only whether an enable password is set).
-- Next step: menu step 5, add host, with a per-host choice to accept an unknown SSH host key (decided by me). Then 6 remove host, 7 show log.
+  Expected: 301 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: menu step 5a, `accept_unknown_host_key` on Host, shown by show hosts.
+- Next step: menu step 5b, the add host menu (IP, username, password, accept unknown host key). Then 6 remove host, 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -157,6 +157,9 @@ Order: A, C, D (structure), then B (encryption), then E.
   could send a second command. Error messages never show a password.
 - `available_commands` is a list, None = not checked (test with `is None`). It is information only: the commands
   netaudit sends come from a fixed list in the code, never from a project file.
+- SSH uses host keys, not certificates. `Host.accept_unknown_host_key` (default False, decided by me): when SSH
+  (Milestone 2) meets a key it has never stored for that host, True answers yes by itself, False asks the user.
+  A key that changed since it was stored is always refused, whatever the setting (could be a MITM).
 - SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
 - A scan stores host IPs, never Host objects (they contain passwords).
 - `Project.create(path, config)` and `Project.load(path)` are classmethods that return a complete Project.

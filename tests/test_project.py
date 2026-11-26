@@ -172,6 +172,24 @@ def test_available_commands_survive_save_and_load(
     assert created.hosts[0].available_commands == commands
 
 
+def test_accept_unknown_host_key_survives_save_and_load(created: Project, host: Host) -> None:
+    """True is saved and loaded back as True."""
+    host.accept_unknown_host_key = True
+    created.hosts = [host]
+    created.save_hosts()
+    created.load_hosts()
+    assert created.hosts[0].accept_unknown_host_key is True
+
+
+def test_hosts_saved_without_accept_unknown_host_key_load_as_false(created: Project) -> None:
+    """A hosts.json from before the field existed still loads, and trusts no unknown key."""
+    (created.path / "hosts.json").write_text(
+        '[{"ip": "192.0.2.11", "ssh_username": "auditor", "ssh_password": "fake-login"}]', encoding="utf-8"
+    )
+    created.load_hosts()
+    assert created.hosts[0].accept_unknown_host_key is False
+
+
 def test_load_hosts_without_a_file_gives_no_hosts(created: Project, host: Host) -> None:
     """A project without saved hosts has none."""
     created.hosts = [host]
