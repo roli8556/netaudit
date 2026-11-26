@@ -143,7 +143,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   SCAN = collecting data from devices, CHECK = checking it for problems.
 - Findings are not log entries: they are stored with the scan. The log only gets a summary line per scan.
   Finding severity will be its own enum on the Finding class (Milestone 5).
-- ProjectLog keeps all entries in memory. `write` writes to the file first, then to the list.
+- ProjectLog keeps all entries in memory. `write(entry)` writes to the file first, then to the list.
+  Create a LogEntry right before writing it, so its time is when it happened.
   A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
   `write` adds a line break first if the file ends with a half-written line.
 - Only one netaudit per open project: two would each have their own entries and hosts in memory.

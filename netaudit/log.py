@@ -94,18 +94,17 @@ class ProjectLog:
             entries.append(LogEntry(message, LogCategory.MISC, LogLevel.WARNING))
         self.entries = entries
 
-    def write(self, message: str, category: LogCategory, level: LogLevel = LogLevel.INFO) -> LogEntry:
-        """Add an entry to the end of the file, then to self.entries, and return it.
+    def write(self, entry: LogEntry) -> None:
+        """Add an entry to the end of the file, then to self.entries.
 
+        Create the entry right before writing it, so its time is when it happened.
         Raises FileNotFoundError if the folder doesn't exist, and then self.entries is unchanged."""
-        entry = LogEntry(message, category, level)
         line = entry.to_line() + "\n"
         if self._ends_with_half_line():
             line = "\n" + line  # don't glue the new entry onto a damaged line
         with self.path.open("a", encoding="utf-8") as file:
             file.write(line)
         self.entries.append(entry)
-        return entry
 
     def _ends_with_half_line(self) -> bool:
         """Return True if the file doesn't end with a line break, as after an interrupted write."""
