@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 311 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: show hosts numbers the hosts from 1 (display only, not stored; remove host will ask for one).
-- Next step: menu step 6, remove host. Then 7 show log.
+  Expected: 325 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: menu step 6, remove host (by the number show hosts prints, confirmed with [y/N]).
+- Next step: menu step 7, show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -110,13 +110,14 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Start menu, create project, load project (with the missing-folders question)
   - [x] Show hosts
   - [x] Add host
-  - [ ] Remove host, show log
+  - [x] Remove host
+  - [ ] Show log
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
-- `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show hosts, add host and close),
+- `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show, add and remove hosts, and close),
   and `is_safe_folder_name`.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
   load, add and remove hosts).

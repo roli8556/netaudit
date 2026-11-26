@@ -86,6 +86,7 @@ class Menu:
             print(f"Project: {self.project.config.name} ({len(self.project.hosts)} hosts)")
             print("  1. Show hosts")
             print("  2. Add host")
+            print("  3. Remove host")
             print("  q. Close project")
             choice = self.ask("Choose: ")
             # Caught here, not in run, so an error keeps the user in the project menu with the project open
@@ -94,10 +95,12 @@ class Menu:
                     self.show_hosts()
                 elif choice == "2":
                     self.add_host_menu()
+                elif choice == "3":
+                    self.remove_host_menu()
                 elif choice.lower() == "q":
                     self.project = None
                 else:
-                    print("Please type 1, 2 or q.", file=sys.stderr)
+                    print("Please type 1, 2, 3 or q.", file=sys.stderr)
             except (ValueError, OSError) as error:
                 print(f"Error: {error}", file=sys.stderr)
 
@@ -138,6 +141,34 @@ class Menu:
         host = Host(ip, username, password, accept_unknown_host_key=(answer == "y"))
         self.project.add_host(host)
         print(f"Added host {host.ip}")
+
+    def remove_host_menu(self) -> None:
+        """Show the hosts, ask for the number of one, confirm, and remove it from the open project.
+
+        q goes back and Enter or n at the confirmation keeps the host. Raises ValueError for a
+        number that isn't in the list or an answer that isn't y or n, and OSError if hosts.json
+        can't be saved. Nothing is removed then."""
+        hosts = self.project.hosts
+        if not hosts:
+            print()
+            print("No hosts to remove.")
+            return
+        self.show_hosts()
+        answer = self.ask("Number of the host to remove (q to go back): ")
+        if answer.lower() == "q":
+            return
+        # isascii first: isdigit alone would accept ², which int() refuses
+        if not answer.isascii() or not answer.isdigit() or not 1 <= int(answer) <= len(hosts):
+            raise ValueError(f"{answer!r} is not a host number from 1 to {len(hosts)}")
+        host = hosts[int(answer) - 1]  # the list shows 1, 2, 3..., the list index starts at 0
+        confirm = input(f"Remove {host.ip}? Its login is deleted too. [y/N]: ").strip().lower()
+        if confirm not in ("", "y", "n"):
+            raise ValueError(f"{confirm!r} is not y or n")
+        if confirm != "y":
+            print("Nothing removed.")
+            return
+        self.project.remove_host(host.ip)
+        print(f"Removed host {host.ip}")
 
     def load_project_menu(self) -> None:
         """Ask for a project's folder, load it, deal with its issues, and open its project menu.

@@ -186,9 +186,9 @@ def test_project_menu_refuses_other_choices(
     """Only the listed choices work in the project menu."""
     menu = Menu()
     menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
-    fake_input(monkeypatch, ["3", "q"])
+    fake_input(monkeypatch, ["4", "q"])
     menu.project_menu()
-    assert "Please type 1, 2 or q." in capsys.readouterr().err
+    assert "Please type 1, 2, 3 or q." in capsys.readouterr().err
     assert menu.project is None
 
 
@@ -345,6 +345,82 @@ def test_error_in_project_menu_keeps_the_project_open(
     assert "Error: Invalid IPv4 address" in captured.err
     assert "fake-new-login" not in captured.out + captured.err
     assert captured.out.count("Project: office") == 2
+
+
+@pytest.fixture
+def two_hosts(saved: Project) -> Menu:
+    """A menu with the saved project open, now with two hosts: 1 is 192.0.2.11, 2 is 192.0.2.12."""
+    saved.add_host(Host("192.0.2.12", "admin", "fake-login-2"))
+    menu = Menu()
+    menu.project = saved
+    return menu
+
+
+def test_remove_host_by_number(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], two_hosts: Menu
+) -> None:
+    """Number 2 removes the second host in the list, after y, and hosts.json no longer has it."""
+    fake_input(monkeypatch, ["2", "y"])
+    two_hosts.remove_host_menu()
+    assert "Removed host 192.0.2.12" in capsys.readouterr().out
+    assert [host.ip for host in two_hosts.project.hosts] == ["192.0.2.11"]
+    assert [host.ip for host in Project.load(two_hosts.project.path).hosts] == ["192.0.2.11"]
+
+
+@pytest.mark.parametrize("confirm", ["", "n", "N"])
+def test_remove_host_keeps_it_unless_confirmed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], two_hosts: Menu, confirm: str
+) -> None:
+    """Enter or n at the confirmation removes nothing."""
+    fake_input(monkeypatch, ["1", confirm])
+    two_hosts.remove_host_menu()
+    assert "Nothing removed." in capsys.readouterr().out
+    assert len(Project.load(two_hosts.project.path).hosts) == 2
+
+
+def test_remove_host_q_goes_back(monkeypatch: pytest.MonkeyPatch, two_hosts: Menu) -> None:
+    """q at the number question removes nothing and asks nothing more."""
+    fake_input(monkeypatch, ["q"])
+    two_hosts.remove_host_menu()
+    assert len(two_hosts.project.hosts) == 2
+
+
+@pytest.mark.parametrize("number", ["0", "3", "-1", "abc", "²", "1.0"])
+def test_remove_host_with_a_bad_number_removes_nothing(
+    monkeypatch: pytest.MonkeyPatch, two_hosts: Menu, number: str
+) -> None:
+    """Only a number shown in the list is accepted."""
+    fake_input(monkeypatch, [number])
+    with pytest.raises(ValueError, match="is not a host number from 1 to 2"):
+        two_hosts.remove_host_menu()
+    assert len(two_hosts.project.hosts) == 2
+
+
+def test_remove_host_with_a_bad_confirmation_removes_nothing(monkeypatch: pytest.MonkeyPatch, two_hosts: Menu) -> None:
+    """Anything but y, n or Enter at the confirmation is refused."""
+    fake_input(monkeypatch, ["1", "yes"])
+    with pytest.raises(ValueError, match="is not y or n"):
+        two_hosts.remove_host_menu()
+    assert len(two_hosts.project.hosts) == 2
+
+
+def test_remove_host_without_hosts(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    """An empty project says there is nothing to remove, without asking anything."""
+    menu = Menu()
+    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    menu.remove_host_menu()  # no fake_input: asking would fail the test
+    assert "No hosts to remove." in capsys.readouterr().out
+
+
+def test_project_menu_removes_hosts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], two_hosts: Menu
+) -> None:
+    """Choice 3 removes a host, then the project menu comes back with one host fewer."""
+    fake_input(monkeypatch, ["3", "1", "y", "q"])
+    two_hosts.project_menu()
+    out = capsys.readouterr().out
+    assert "Project: office (2 hosts)" in out
+    assert "Project: office (1 hosts)" in out
 
 
 def test_load_missing_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
