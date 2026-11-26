@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 162 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: Host checks every field (`is_valid_hostname` for Cisco's hostname rules).
-- Next step: more validation (port and timeout, project name, duplicate IPs), then the menu.
+  Expected: 192 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: ProjectConfig checks its name, port, timeout and created time.
+- Next step: `Project.add_host` and `remove_host`, with no duplicate IPs. Then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -138,6 +138,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
 - `__post_init__` only runs when a Host is created, not when a field is assigned later. The parser must check
   values before assigning them, with the same functions (like `is_valid_hostname`) so each rule exists once.
+- ProjectConfig: name 1-64 printable characters (any language), port 1-65535, timeout 1-300 seconds.
 - Usernames and passwords can't contain control characters: a line break in a password typed into the CLI
   could send a second command. Error messages never show a password.
 - `available_commands` is a list, None = not checked (test with `is None`). It is information only: the commands
@@ -176,7 +177,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Deleting projects: in the project.py docstring, not planned yet.
 
 ### Known gaps (all reproduced)
-- Not validated yet: port, timeout, project name, duplicate IPs, and the types of the ProjectConfig fields.
+- Not validated yet: duplicate IPs.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.

@@ -441,3 +441,54 @@ def test_create_missing_folders_clears_the_issue(created: Project) -> None:
     loaded = Project.load(created.path)
     loaded.create_missing_folders()
     assert loaded.issues == {}
+
+
+@pytest.mark.parametrize("name", ["office", "Västerås lab", "a" * 64])
+def test_valid_project_name_is_accepted(name: str) -> None:
+    """Any printable name up to 64 characters is fine, also with spaces and non-ASCII letters."""
+    assert ProjectConfig(name).name == name
+
+
+@pytest.mark.parametrize("name", ["", "   ", "office\nreload", "a" * 65, None, 5])
+def test_invalid_project_name_raises(name: object) -> None:
+    """A project name is printable text, not empty and not too long."""
+    with pytest.raises(ValueError):
+        ProjectConfig(name)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("port", [1, 22, 65535])
+def test_valid_ssh_port_is_accepted(port: int) -> None:
+    """Every TCP port number can be used for SSH."""
+    assert ProjectConfig("office", ssh_port=port).ssh_port == port
+
+
+@pytest.mark.parametrize("port", [0, 65536, -22, 22.0, True, "22", None])
+def test_invalid_ssh_port_raises(port: object) -> None:
+    """A port is a whole number from 1 to 65535."""
+    with pytest.raises(ValueError):
+        ProjectConfig("office", ssh_port=port)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("timeout", [0, 301, 1.5, True, "10", None])
+def test_invalid_ssh_timeout_raises(timeout: object) -> None:
+    """A timeout is a whole number of seconds from 1 to 300."""
+    with pytest.raises(ValueError):
+        ProjectConfig("office", ssh_timeout=timeout)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("created", ["yesterday", "2026-01-02", "2026-13-01 00:00:00", None])
+def test_invalid_created_time_raises(created: object) -> None:
+    """The created time must be in the format current_timestamp writes."""
+    with pytest.raises(ValueError):
+        ProjectConfig("office", created_time=created)  # type: ignore[arg-type]
+
+
+def test_loading_a_config_with_a_bad_value_raises(tmp_path: Path) -> None:
+    """A hand-edited config.json is checked when it's loaded."""
+    path = tmp_path / "config.json"
+    ProjectConfig("office").save(path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["ssh_port"] = 99999
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError):
+        ProjectConfig.load(path)

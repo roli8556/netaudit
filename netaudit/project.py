@@ -33,7 +33,25 @@ class ProjectConfig:
     ssh_port: int = 22
     ssh_timeout: int = 10
     created_time: str = field(default_factory=current_timestamp)
-    
+
+    def __post_init__(self) -> None:
+        """Check the settings. Raises ValueError if one is invalid."""
+        # Type checks come first, and type() is not int also rejects True and False (see Host).
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("Project name cannot be empty")
+        if len(self.name) > 64 or not self.name.isprintable():
+            raise ValueError(f"Project name must be at most 64 printable characters, got {self.name!r}")
+        if type(self.ssh_port) is not int or not 1 <= self.ssh_port <= 65535:
+            raise ValueError(f"SSH port must be a whole number from 1 to 65535, got {self.ssh_port!r}")
+        if type(self.ssh_timeout) is not int or not 1 <= self.ssh_timeout <= 300:
+            raise ValueError(f"SSH timeout must be a whole number of seconds from 1 to 300, got {self.ssh_timeout!r}")
+        if not isinstance(self.created_time, str):
+            raise ValueError(f"Created time must be text, got {self.created_time!r}")
+        try:
+            datetime.strptime(self.created_time, "%Y-%m-%d %H:%M:%S")
+        except ValueError as error:
+            raise ValueError(f"Created time must look like 2026-01-02 03:04:05, got {self.created_time!r}") from error
+
     def save(self, path: Path) -> None:
         """Save or create a new project configuration file in JSON format."""
         # TODO: encrypt before writing (part B), this is plain text for now
