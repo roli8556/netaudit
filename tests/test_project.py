@@ -392,3 +392,22 @@ def test_load_of_a_folder_that_is_not_a_project_creates_nothing(tmp_path: Path) 
     with pytest.raises(FileNotFoundError):
         Project.load(tmp_path)
     assert list(tmp_path.iterdir()) == []
+
+
+def test_create_missing_folders_creates_and_logs_them(created: Project) -> None:
+    """After creating, nothing is missing, and the log names each created folder."""
+    (created.path / "configs").rmdir()
+    (created.path / "scans").rmdir()
+    created.create_missing_folders()
+    assert created.missing_folders() == []
+    assert [e.message for e in created.log.entries[-2:]] == [
+        "Created missing folder configs/",
+        "Created missing folder scans/",
+    ]
+
+
+def test_create_missing_folders_with_nothing_missing_does_nothing(created: Project) -> None:
+    """No folders to create means no log entries either."""
+    before = list(created.log.entries)
+    created.create_missing_folders()
+    assert created.log.entries == before

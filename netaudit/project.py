@@ -138,3 +138,9 @@ class Project:
     def missing_folders(self) -> list[str]:
         """Return the names of the project folders that don't exist, for example ["configs"]."""
         return [folder for folder in PROJECT_FOLDERS if not (self.path / folder).is_dir()]
+
+    def create_missing_folders(self) -> None:
+        """Create the project folders that don't exist, and log each one."""
+        for folder in self.missing_folders():
+            (self.path / folder).mkdir()
+            self.log.write(LogEntry(f"Created missing folder {folder}/", LogCategory.PROJECT))

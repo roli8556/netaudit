@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 73 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: load recreates `logs/` and warns about missing project folders (`missing_folders`).
-- Next step: `create_missing_folders` in Project. Then log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
+  Expected: 75 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: load recreates `logs/` and warns about missing folders; `create_missing_folders` creates them.
+- Next step: log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -107,7 +107,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Create without overwriting, save and load config and hosts, write and load scans
   - [ ] Check paths, clear errors for damaged files
 - [ ] D. Menu (`netaudit/menu.py`, doesn't exist yet): create, load, show, add and remove hosts
-  - After load, if `project.missing_folders()` isn't empty: ask to create them, continue without them, or exit.
+  - After load, if `project.missing_folders()` isn't empty: ask to create them
+    (`create_missing_folders()`), continue without them, or exit.
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
