@@ -1,7 +1,7 @@
 """The project log: what netaudit did and when. Findings are not logged here, only summaries."""
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -34,12 +34,14 @@ class LogEntry:
     category: LogCategory
     level: LogLevel = LogLevel.INFO
     time: datetime = field(default_factory=datetime.now)
+    number: int | None = None  # given by ProjectLog.write, None until the entry is in the file
 
     def to_line(self) -> str:
         """Return the entry as one line of JSON, without a line break at the end.
 
         json.dumps escapes line breaks inside the message, so a message can't fake an extra entry."""
         data = {
+            "number": self.number,
             "time": self.time.isoformat(),
             "category": self.category.value,
             "level": self.level.value,
@@ -51,13 +53,17 @@ class LogEntry:
     def from_line(cls, line: str) -> "LogEntry":
         """Return the entry stored in one line of JSON.
 
-        Raises ValueError for an unknown category or level, or a line that isn't JSON."""
+        Raises ValueError for an unknown category or level, a number that isn't a whole number,
+        or a line that isn't JSON."""
         data = json.loads(line)
+        if not isinstance(data["number"], int):
+            raise ValueError(f"Log entry number is not a whole number: {data['number']!r}")
         return cls(
             message=data["message"],
             category=LogCategory(data["category"]),
             level=LogLevel(data["level"]),
             time=datetime.fromisoformat(data["time"]),
+            number=data["number"],
         )
 
 
@@ -95,15 +101,17 @@ class ProjectLog:
         self.entries = entries
 
     def write(self, entry: LogEntry) -> None:
-        """Add an entry to the end of the file, then to self.entries.
+        """Give the entry the next number, add it to the end of the file, then to self.entries.
 
         Create the entry right before writing it, so its time is when it happened.
-        Raises FileNotFoundError if the folder doesn't exist, and then self.entries is unchanged."""
-        line = entry.to_line() + "\n"
+        Raises FileNotFoundError if the folder doesn't exist, and then the entry and self.entries are unchanged."""
+        number = self._next_number()
+        line = replace(entry, number=number).to_line() + "\n"  # a copy, so a failed write leaves entry as it was
         if self._ends_with_half_line():
             line = "\n" + line  # don't glue the new entry onto a damaged line
         with self.path.open("a", encoding="utf-8") as file:
             file.write(line)
+        entry.number = number
         self.entries.append(entry)
 
     def find(
@@ -112,11 +120,15 @@ class ProjectLog:
         level: LogLevel | None = None,
         since: datetime | None = None,
         text: str | None = None,
+        from_number: int | None = None,
+        to_number: int | None = None,
     ) -> list[LogEntry]:
         """Return a new list of the entries that match every filter given, oldest first. None means any.
 
         since: only entries at or after this time. text: only entries whose message contains it,
-        ignoring upper and lower case. Only reads the entries in memory, never the file."""
+        ignoring upper and lower case. from_number and to_number: only entries numbered in that range,
+        both included. An entry without a number never matches a number filter.
+        Only reads the entries in memory, never the file."""
         result = []
         for entry in self.entries:
             if category is not None and entry.category != category:
@@ -127,8 +139,19 @@ class ProjectLog:
                 continue
             if text is not None and text.lower() not in entry.message.lower():
                 continue
+            if from_number is not None and (entry.number is None or entry.number < from_number):
+                continue
+            if to_number is not None and (entry.number is None or entry.number > to_number):
+                continue
             result.append(entry)
         return result
+
+    def _next_number(self) -> int:
+        """Return the number for the next entry: one more than the highest so far, or 1 for the first.
+
+        Not len(entries) + 1: skipped damaged lines and the warnings about them would shift the numbers."""
+        numbers = [entry.number for entry in self.entries if entry.number is not None]
+        return max(numbers, default=0) + 1
 
     def _ends_with_half_line(self) -> bool:
         """Return True if the file doesn't end with a line break, as after an interrupted write."""

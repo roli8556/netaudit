@@ -83,8 +83,8 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 86 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: `ProjectLog.find` (filter by category, level, since and text). The log is done.
+  Expected: 95 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log entries have a sequence number, and `find` filters by a number range. The log is done.
 - Next step: validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
@@ -147,6 +147,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   Finding severity will be its own enum on the Finding class (Milestone 5).
 - ProjectLog keeps all entries in memory. `write(entry)` writes to the file first, then to the list.
   Create a LogEntry right before writing it, so its time is when it happened.
+  `write` gives each entry its number: highest so far + 1 (not len + 1). None = not in the file, as for
+  the in-memory warnings about damaged lines. A failed write leaves the entry without a number.
   A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
   `write` adds a line break first if the file ends with a half-written line.
 - Only one netaudit per open project: two would each have their own entries and hosts in memory.
@@ -172,6 +174,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `Scan.write` can't save datetime or Path fields of subclasses, and tuples load back as lists.
 
 ### Notes for part B
+- Gaps in log numbers mean deleted lines. A later check could report them as a SECURITY warning.
 - Bind each encrypted file to its path, as Fernet can't detect two swapped files.
 - A plain `project.salt` file was proposed for the salt.
 - Ignore `*.enc` and `*.enc.tmp` in Git. Remove the xfail marker when the plain-text test passes.

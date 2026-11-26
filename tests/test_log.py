@@ -19,14 +19,14 @@ def test_entry_defaults_to_info_and_now() -> None:
 
 def test_entry_survives_a_round_trip() -> None:
     """An entry turned into a line and back is the same entry."""
-    entry = LogEntry("Login failed", LogCategory.HOST, LogLevel.SECURITY, datetime(2026, 1, 2, 3, 4, 5))
+    entry = LogEntry("Login failed", LogCategory.HOST, LogLevel.SECURITY, datetime(2026, 1, 2, 3, 4, 5), 7)
     assert LogEntry.from_line(entry.to_line()) == entry
 
 
 def test_line_break_in_message_stays_on_one_line() -> None:
     """A message can't fake an extra entry in the log file."""
     message = 'SW1\n{"level": "INFO", "message": "fake"}'
-    line = LogEntry(message, LogCategory.SCAN).to_line()
+    line = LogEntry(message, LogCategory.SCAN, number=1).to_line()
     assert "\n" not in line
     assert LogEntry.from_line(line).message == message
 
@@ -34,7 +34,7 @@ def test_line_break_in_message_stays_on_one_line() -> None:
 @pytest.mark.parametrize("key, value", [("level", "DEBUG"), ("category", "OTHER")])
 def test_unknown_level_or_category_raises(key: str, value: str) -> None:
     """Only the values in the enums are accepted."""
-    data = json.loads(LogEntry("x", LogCategory.MISC).to_line())
+    data = json.loads(LogEntry("x", LogCategory.MISC, number=1).to_line())
     data[key] = value
     with pytest.raises(ValueError):
         LogEntry.from_line(json.dumps(data))
@@ -176,3 +176,84 @@ def test_find_with_several_filters_needs_all_to_match(filled: ProjectLog) -> Non
 def test_find_with_no_match_returns_empty(filled: ProjectLog) -> None:
     """No match is an empty list, not an error."""
     assert filled.find(level=LogLevel.WARNING) == []
+
+
+def test_line_without_a_whole_number_raises() -> None:
+    """Every line in the file has a number, and only a whole number is accepted."""
+    for number in (None, "5", 1.5):
+        line = json.dumps({"number": number, "time": "2026-01-02T03:04:05", "category": "MISC",
+                           "level": "INFO", "message": "x"})
+        with pytest.raises(ValueError):
+            LogEntry.from_line(line)
+
+
+def test_write_numbers_entries_from_one(log: ProjectLog) -> None:
+    """The log gives each written entry the next number."""
+    first = LogEntry("Project created", LogCategory.PROJECT)
+    second = LogEntry("Project loaded", LogCategory.PROJECT)
+    assert first.number is None
+    log.write(first)
+    log.write(second)
+    assert (first.number, second.number) == (1, 2)
+
+
+def test_numbers_continue_after_a_reload(log: ProjectLog) -> None:
+    """A fresh log continues from the highest number in the file."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT))
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT))
+    fresh = ProjectLog(log.path)
+    fresh.load()
+    entry = LogEntry("Project loaded", LogCategory.PROJECT)
+    fresh.write(entry)
+    assert [e.number for e in fresh.entries] == [1, 2, 3]
+
+
+def test_damaged_line_does_not_shift_numbers(log: ProjectLog) -> None:
+    """The numbers come from the file, not from counting entries, and the warning has no number."""
+    log.write(LogEntry("Scan started", LogCategory.SCAN))
+    log.write(LogEntry("Scan finished", LogCategory.SCAN))
+    lines = log.path.read_text(encoding="utf-8").splitlines()
+    log.path.write_text("damaged\n" + lines[1] + "\n", encoding="utf-8")  # entry 1 is damaged
+    log.load()
+    assert [e.number for e in log.entries] == [2, None]
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT))
+    assert log.entries[-1].number == 3
+
+
+def test_failed_write_leaves_the_entry_without_a_number(tmp_path: Path) -> None:
+    """An entry that never reached the file doesn't get a number."""
+    log = ProjectLog(tmp_path / "missing" / "project.log")
+    entry = LogEntry("Project created", LogCategory.PROJECT)
+    with pytest.raises(FileNotFoundError):
+        log.write(entry)
+    assert entry.number is None
+
+
+@pytest.fixture
+def numbered(log: ProjectLog) -> ProjectLog:
+    """A log with entries numbered 1 to 5, and one warning without a number, in memory only."""
+    log.entries = [LogEntry(f"Entry {n}", LogCategory.MISC, number=n) for n in range(1, 6)]
+    log.entries.append(LogEntry("Line 9 in the log is damaged and was skipped", LogCategory.MISC, LogLevel.WARNING))
+    return log
+
+
+def test_find_from_number(numbered: ProjectLog) -> None:
+    """from_number includes that number and everything after it."""
+    assert [e.number for e in numbered.find(from_number=4)] == [4, 5]
+
+
+def test_find_to_number(numbered: ProjectLog) -> None:
+    """to_number includes that number and everything before it."""
+    assert [e.number for e in numbered.find(to_number=2)] == [1, 2]
+
+
+def test_find_number_range_and_exact_number(numbered: ProjectLog) -> None:
+    """Both together give a range, and the same number twice gives one entry."""
+    assert [e.number for e in numbered.find(from_number=2, to_number=4)] == [2, 3, 4]
+    assert [e.number for e in numbered.find(from_number=3, to_number=3)] == [3]
+
+
+def test_find_without_number_filter_includes_unnumbered(numbered: ProjectLog) -> None:
+    """Entries without a number are only left out when filtering on numbers."""
+    assert len(numbered.find()) == 6
+    assert len(numbered.find(from_number=1)) == 5
