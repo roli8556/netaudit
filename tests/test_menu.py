@@ -273,9 +273,10 @@ def test_show_hosts_never_shows_passwords(capsys: pytest.CaptureFixture[str], sa
     menu.show_hosts()
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
-    assert lines[1].split() == ["IP", "Username", "Hostname", "Privilege", "Enable", "password", "Accept", "unknown", "key"]
-    assert lines[2].split() == ["192.0.2.11", "auditor", "-", "-", "not", "set", "no"]
-    assert lines[3].split() == ["192.0.2.12", "admin", "SW2", "15", "set", "yes"]
+    assert lines[1].split() == ["#", "IP", "Username", "Hostname", "Privilege", "Enable", "password", "Accept", "unknown",
+                                "key"]
+    assert lines[2].split() == ["1", "192.0.2.11", "auditor", "-", "-", "not", "set", "no"]
+    assert lines[3].split() == ["2", "192.0.2.12", "admin", "SW2", "15", "set", "yes"]
     for password in ["fake-login", "fake-enable"]:  # fake-login is also part of fake-login-2
         assert password not in captured.out + captured.err
 

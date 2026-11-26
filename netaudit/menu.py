@@ -102,21 +102,25 @@ class Menu:
                 print(f"Error: {error}", file=sys.stderr)
 
     def show_hosts(self) -> None:
-        """Print the open project's hosts as a table.
+        """Print the open project's hosts as a table, numbered from 1 in list order.
 
+        The numbers are only for this list (remove host asks for one), they aren't stored.
         Passwords are never shown, only whether there is an enable password."""
         print()
         if not self.project.hosts:
             print("No hosts yet.")
             return
-        print(f"{'IP':<17}{'Username':<17}{'Hostname':<17}{'Privilege':<11}{'Enable password':<17}Accept unknown key")
-        for host in self.project.hosts:
+        print(
+            f"{'#':<4}{'IP':<17}{'Username':<17}{'Hostname':<17}{'Privilege':<11}{'Enable password':<17}"
+            "Accept unknown key"
+        )
+        for number, host in enumerate(self.project.hosts, start=1):
             # None means not read from the device yet. The hostname is device text, but Host only accepts valid ones.
             hostname = host.hostname if host.hostname is not None else "-"
             level = str(host.privilege_level) if host.privilege_level is not None else "-"
             enable = "set" if host.enable_password is not None else "not set"
             accept_key = "yes" if host.accept_unknown_host_key else "no"
-            print(f"{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
+            print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
 
     def add_host_menu(self) -> None:
         """Ask for a new host's IP, SSH login and host key choice, and add it to the open project.

@@ -84,7 +84,7 @@ Update this section in the commit of every step.
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
   Expected: 311 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: menu step 5b, add host (IP, username, password with getpass, accept unknown host key [y/N]).
+- Last finished step: show hosts numbers the hosts from 1 (display only, not stored; remove host will ask for one).
 - Next step: menu step 6, remove host. Then 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
