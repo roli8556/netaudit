@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from netaudit.menu import Menu, is_safe_folder_name
+from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig
 
 
@@ -49,15 +50,6 @@ def test_choice_calls_its_action(monkeypatch: pytest.MonkeyPatch, choice: str, a
     fake_input(monkeypatch, [choice])
     assert Menu().start_menu() is True
     assert called == [action]
-
-
-def test_not_yet_available_choice_returns_to_the_menu(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Load isn't built yet, so the menu is shown again."""
-    fake_input(monkeypatch, ["2", "q"])
-    Menu().run()
-    assert "Not available yet." in capsys.readouterr().out
 
 
 def test_ask_strips_spaces_and_asks_again_when_empty(
@@ -220,3 +212,102 @@ def test_safe_folder_names(name: str) -> None:
 def test_unsafe_folder_names(name: str) -> None:
     """Path parts, dots, colons, reserved Windows names and edge spaces are refused."""
     assert not is_safe_folder_name(name)
+
+
+@pytest.fixture
+def saved(tmp_path: Path) -> Project:
+    """A project on disk with one host, ready to be loaded."""
+    project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    project.add_host(Host("192.0.2.11", "auditor", "fake-login"))
+    return project
+
+
+def test_load_project_and_close_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Loading shows the project and its hosts, then q closes it."""
+    fake_input(monkeypatch, [str(saved.path), "q"])
+    menu = Menu()
+    menu.load_project_menu()
+    out = capsys.readouterr().out
+    assert "Loaded project 'office' (1 hosts)" in out
+    assert "WARNING: this project is not encrypted yet" in out
+    assert "Project: office (1 hosts)" in out
+    assert menu.project is None
+
+
+def test_load_project_from_the_start_menu(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Closing the loaded project returns to the start menu."""
+    fake_input(monkeypatch, ["2", str(saved.path), "q", "q"])
+    Menu().run()
+    out = capsys.readouterr().out
+    assert out.count("Start menu") == 2
+    assert out.endswith("Bye\n")
+
+
+def test_load_missing_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A path that isn't a folder is refused with a clear message."""
+    fake_input(monkeypatch, [str(tmp_path / "missing")])
+    with pytest.raises(ValueError, match="is not a folder"):
+        Menu().load_project_menu()
+
+
+def test_load_folder_that_is_not_a_project_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A folder without config.json isn't a project, and nothing is created in it."""
+    fake_input(monkeypatch, [str(tmp_path)])
+    with pytest.raises(ValueError, match="is not a netaudit project"):
+        Menu().load_project_menu()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_load_damaged_project_shows_the_file_and_returns(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """A damaged hosts.json shows an error naming the file, then the start menu, with no project open."""
+    (saved.path / "hosts.json").write_text("broken", encoding="utf-8")
+    fake_input(monkeypatch, ["2", str(saved.path), "q"])
+    menu = Menu()
+    menu.run()
+    captured = capsys.readouterr()
+    assert "hosts.json is damaged" in captured.err
+    assert captured.out.count("Start menu") == 2
+    assert menu.project is None
+
+
+def test_missing_folders_can_be_created(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Choice 1 creates the missing folders, then the project menu opens."""
+    (saved.path / "scans").rmdir()
+    fake_input(monkeypatch, [str(saved.path), "1", "q"])
+    Menu().load_project_menu()
+    out = capsys.readouterr().out
+    assert "These project folders are missing: scans" in out
+    assert "Project: office" in out
+    assert (saved.path / "scans").is_dir()
+
+
+def test_missing_folders_can_be_left_missing(monkeypatch: pytest.MonkeyPatch, saved: Project) -> None:
+    """Choice 2 opens the project without creating anything."""
+    (saved.path / "scans").rmdir()
+    (saved.path / "configs").rmdir()
+    fake_input(monkeypatch, [str(saved.path), "2", "q"])
+    Menu().load_project_menu()
+    assert not (saved.path / "scans").exists()
+    assert not (saved.path / "configs").exists()
+
+
+def test_missing_folders_q_closes_the_project(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """q in the missing-folders question closes the project without opening the project menu."""
+    (saved.path / "scans").rmdir()
+    fake_input(monkeypatch, [str(saved.path), "x", "q"])
+    menu = Menu()
+    menu.load_project_menu()
+    captured = capsys.readouterr()
+    assert "Please type 1, 2 or q." in captured.err
+    assert "Project: office" not in captured.out
+    assert menu.project is None

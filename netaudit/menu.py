@@ -3,7 +3,10 @@
 import sys
 from pathlib import Path
 
-from netaudit.project import Project, ProjectConfig
+from netaudit.project import Project, ProjectConfig, ProjectIssue
+
+# Shown after creating or loading a project, until part B encrypts the files.
+NOT_ENCRYPTED_WARNING = "WARNING: this project is not encrypted yet. Use fake passwords only."
 
 # Names Windows reserves for devices: a folder can't have them, whatever the case.
 WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL"} | {f"COM{n}" for n in range(1, 10)} | {
@@ -71,7 +74,7 @@ class Menu:
         config = ProjectConfig(name, ssh_port=port, ssh_timeout=timeout)
         self.project = Project.create(location / name, config)
         print(f"Created project {name!r} in {self.project.path}")
-        print("WARNING: this project is not encrypted yet. Use fake passwords only.")
+        print(NOT_ENCRYPTED_WARNING)
         self.project_menu()
 
     def project_menu(self) -> None:
@@ -87,8 +90,46 @@ class Menu:
                 print("Please type q.", file=sys.stderr)
 
     def load_project_menu(self) -> None:
-        """Ask for a project's folder and load it. Not built yet."""
-        print("Not available yet.")
+        """Ask for a project's folder, load it, deal with its issues, and open its project menu.
+
+        Raises ValueError for a folder that isn't a project or a damaged project file. run shows the
+        error, and no project is opened."""
+        print()
+        print("Load project")
+        path = Path(self.ask("Project folder: ")).expanduser()
+        if not path.is_dir():
+            raise ValueError(f"{path} is not a folder")
+        if not (path / "config.json").is_file():
+            raise ValueError(f"{path} is not a netaudit project (it has no config.json)")
+        project = Project.load(path)
+        print(f"Loaded project {project.config.name!r} ({len(project.hosts)} hosts)")
+        print(NOT_ENCRYPTED_WARNING)
+        if not self.missing_folders_menu(project):
+            return  # the user chose to close the project
+        self.project = project  # only now, so a failure above never leaves a half-opened project
+        self.project_menu()
+
+    def missing_folders_menu(self, project: Project) -> bool:
+        """If project folders are missing, ask what to do. Return False if the user wants to close the project."""
+        if ProjectIssue.MISSING_FOLDER not in project.issues:
+            return True
+        folders = project.issues[ProjectIssue.MISSING_FOLDER]
+        while True:
+            print()
+            print("These project folders are missing: " + ", ".join(folders))
+            print("  1. Create them")
+            print("  2. Continue without them")
+            print("  q. Close the project")
+            choice = self.ask("Choose: ")
+            if choice == "1":
+                project.create_missing_folders()
+                print("Created the missing folders.")
+                return True
+            if choice == "2":
+                return True
+            if choice.lower() == "q":
+                return False
+            print("Please type 1, 2 or q.", file=sys.stderr)
 
     def ask(self, prompt: str) -> str:
         """Ask until the user types something, and return it without spaces at the ends."""

@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 283 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: damaged config, hosts and scan files give a ValueError that names the file.
-- Next step: menu step 3b, `load_project_menu` (folder checks, issues prompt). Then: (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
+  Expected: 290 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: menu step 3, load a project from the menu, with the missing-folders question.
+- Next step: menu step 4, show hosts. Then: (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -103,18 +103,18 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Project, ProjectConfig, Host, Scan base class
   - [x] Validation
   - [x] Log
-- [ ] C. Project files
+- [x] C. Project files
   - [x] Create without overwriting, save and load config and hosts, write and load scans
-  - [ ] Check paths, clear errors for damaged files
+  - [x] Check paths, clear errors for damaged files
 - [ ] D. Menu (`netaudit/menu.py`): create, load, show, add and remove hosts, show log
-  - After load, if `ProjectIssue.MISSING_FOLDER in project.issues`: ask to create them
-    (`create_missing_folders()`), continue without them, or exit.
+  - [x] Start menu, create project, load project (with the missing-folders question)
+  - [ ] Show hosts, add host, remove host, show log
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
-- `netaudit/menu.py`: Menu, the text menu (start menu, create project, project menu with only Close),
+- `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with only Close),
   and `is_safe_folder_name`.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
   load, add and remove hosts).
