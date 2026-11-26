@@ -83,10 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 218 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: menu step 1, the Menu class with the start menu (only Exit works) and Ctrl+C handling.
-- Next step: menu step 2, create a project, then an empty project menu (only Close).
-  Then: 3 load (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
+  Expected: 263 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: menu step 2, create a project from the menu, and a project menu with only Close.
+- Next step: menu step 3, load (with issues and clear errors). Then: (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -115,7 +114,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
-- `netaudit/menu.py`: Menu, the text menu (start menu so far).
+- `netaudit/menu.py`: Menu, the text menu (start menu, create project, project menu with only Close),
+  and `is_safe_folder_name`.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
   load, add and remove hosts).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
@@ -141,6 +141,9 @@ Order: A, C, D (structure), then B (encryption), then E.
   (e.g. `create_project_menu`). `q` (or `Q`) exits or goes back. `ask` handles all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
   Passwords with getpass. Port and timeout are asked with the default shown. Until part B, create and load
   warn that the project isn't encrypted. Device text is made printable before it is shown.
+- A new project's folder is location/name, so the menu only accepts names that are safe folder names
+  (`is_safe_folder_name`: letters, digits, spaces, - and _, no reserved Windows names). The location must exist.
+  A bad answer while creating goes back to the start menu with an error; nothing is created.
 - `hostname` and `privilege_level` are read from the device after login, not typed in. None = not read yet.
   `privilege_level` is the SSH user's level at login (0-15, checked when set). It is not a write protection.
 - Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
