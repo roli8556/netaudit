@@ -83,7 +83,7 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 214 passed, 1 xfailed (the plain-text password test, until part B).
+  Expected: 215 passed, 1 xfailed (the plain-text password test, until part B).
 - Last finished step: menu step 1, the Menu class with the start menu (only Exit works) and Ctrl+C handling.
 - Next step: menu step 2, create a project, then an empty project menu (only Close).
   Then: 3 load (with issues and clear errors), 4 show hosts, 5 add host, 6 remove host, 7 show log.
@@ -137,7 +137,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Passwords: at least 12 characters, no recovery. Keep the key in memory, never the project password.
 - Only the menu uses input() and print(). Project never asks the user anything.
 - Menu is a class (decided by me): `self.project` is the open project, one method per menu and action.
-  `ask` and `choose` handle all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
+  Each menu prints its own options, reads the choice with `ask`, and calls a method per choice
+  (e.g. `create_project_menu`). `ask` handles all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
   Passwords with getpass. Port and timeout are asked with the default shown. Until part B, create and load
   warn that the project isn't encrypted. Device text is made printable before it is shown.
 - `hostname` and `privilege_level` are read from the device after login, not typed in. None = not read yet.

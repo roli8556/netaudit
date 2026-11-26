@@ -20,20 +20,32 @@ def test_choosing_exit_ends_the_menu(monkeypatch: pytest.MonkeyPatch, capsys: py
     assert out.endswith("Bye\n")
 
 
-@pytest.mark.parametrize("bad", ["9", "0", "abc", "", "1.0", "²"])
-def test_invalid_choice_asks_again(
+@pytest.mark.parametrize("bad", ["9", "0", "abc", "1.0", "²"])
+def test_invalid_choice_shows_the_menu_again(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], bad: str
 ) -> None:
-    """Anything but a listed number is refused on stderr, then the user is asked again."""
-    fake_input(monkeypatch, [bad, "2"])
-    assert Menu().choose("Test", ["First", "Second"]) == 2
-    assert "Please type a number from 1 to 2." in capsys.readouterr().err
+    """Anything but a listed number is refused on stderr, and the start menu is shown again."""
+    fake_input(monkeypatch, [bad, "3"])
+    Menu().run()
+    captured = capsys.readouterr()
+    assert "Please type a number from 1 to 3." in captured.err
+    assert captured.out.count("Start menu") == 2
 
 
 def test_choice_may_have_spaces(monkeypatch: pytest.MonkeyPatch) -> None:
     """Spaces around the number don't matter."""
-    fake_input(monkeypatch, [" 1 "])
-    assert Menu().choose("Test", ["First", "Second"]) == 1
+    fake_input(monkeypatch, [" 3 "])
+    assert Menu().start_menu() is False
+
+
+@pytest.mark.parametrize("choice, action", [("1", "create_project_menu"), ("2", "load_project_menu")])
+def test_choice_calls_its_action(monkeypatch: pytest.MonkeyPatch, choice: str, action: str) -> None:
+    """Each start menu choice calls its own method, and the menu continues afterwards."""
+    called = []
+    monkeypatch.setattr(Menu, action, lambda self: called.append(action))
+    fake_input(monkeypatch, [choice])
+    assert Menu().start_menu() is True
+    assert called == [action]
 
 
 def test_not_yet_available_choice_returns_to_the_menu(
