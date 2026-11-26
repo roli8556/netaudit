@@ -114,3 +114,65 @@ def test_half_written_line_is_skipped_and_kept_separate(log: ProjectLog) -> None
         "Project loaded",
         "Line 2 in the log is damaged and was skipped",
     ]
+
+
+@pytest.fixture
+def filled(log: ProjectLog) -> ProjectLog:
+    """A log with four entries at known times, in memory only."""
+    log.entries = [
+        LogEntry("Project created", LogCategory.PROJECT, LogLevel.INFO, datetime(2026, 1, 1)),
+        LogEntry("Login failed on 192.0.2.11", LogCategory.HOST, LogLevel.SECURITY, datetime(2026, 1, 2)),
+        LogEntry("Scan started on 192.0.2.11", LogCategory.SCAN, LogLevel.INFO, datetime(2026, 1, 3)),
+        LogEntry("Scan failed on 192.0.2.12", LogCategory.SCAN, LogLevel.ERROR, datetime(2026, 1, 4)),
+    ]
+    return log
+
+
+def messages(entries: list[LogEntry]) -> list[str]:
+    """Return only the messages, to keep the asserts short."""
+    return [entry.message for entry in entries]
+
+
+def test_find_without_filters_returns_a_copy_of_all(filled: ProjectLog) -> None:
+    """No filters means every entry, in a new list that can be changed safely."""
+    found = filled.find()
+    assert found == filled.entries
+    found.clear()
+    assert len(filled.entries) == 4
+
+
+def test_find_by_category(filled: ProjectLog) -> None:
+    """Only entries of the category are returned, oldest first."""
+    assert messages(filled.find(category=LogCategory.SCAN)) == [
+        "Scan started on 192.0.2.11",
+        "Scan failed on 192.0.2.12",
+    ]
+
+
+def test_find_by_level(filled: ProjectLog) -> None:
+    """Only entries of the level are returned."""
+    assert messages(filled.find(level=LogLevel.SECURITY)) == ["Login failed on 192.0.2.11"]
+
+
+def test_find_since_includes_the_exact_time(filled: ProjectLog) -> None:
+    """An entry at exactly the since time is included."""
+    assert messages(filled.find(since=datetime(2026, 1, 3))) == [
+        "Scan started on 192.0.2.11",
+        "Scan failed on 192.0.2.12",
+    ]
+
+
+def test_find_text_ignores_case(filled: ProjectLog) -> None:
+    """Text search finds the text anywhere in the message, in any case."""
+    assert messages(filled.find(text="LOGIN")) == ["Login failed on 192.0.2.11"]
+    assert len(filled.find(text="192.0.2.11")) == 2
+
+
+def test_find_with_several_filters_needs_all_to_match(filled: ProjectLog) -> None:
+    """Filters combine: an entry must match every one given."""
+    assert messages(filled.find(category=LogCategory.SCAN, text="192.0.2.11")) == ["Scan started on 192.0.2.11"]
+
+
+def test_find_with_no_match_returns_empty(filled: ProjectLog) -> None:
+    """No match is an empty list, not an error."""
+    assert filled.find(level=LogLevel.WARNING) == []

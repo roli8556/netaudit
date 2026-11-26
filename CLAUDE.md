@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 79 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: `project.issues` (ProjectIssue enum), filled by load, cleared by `create_missing_folders`.
-- Next step: log filtering (`find`). Then validation, starting with the IP check in Host, then the menu.
+  Expected: 86 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: `ProjectLog.find` (filter by category, level, since and text). The log is done.
+- Next step: validation, starting with the IP check in Host, then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -102,7 +102,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - [ ] A. Project model
   - [x] Project, ProjectConfig, Host, Scan base class
   - [ ] Validation
-  - [ ] Log
+  - [x] Log
 - [ ] C. Project files
   - [x] Create without overwriting, save and load config and hosts, write and load scans
   - [ ] Check paths, clear errors for damaged files
@@ -117,7 +117,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log; create, save, load).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
-- `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file).
+- `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file,
+  `find` to filter them).
 
 ### A project on disk (can be anywhere)
 - `config.json`: the project's own settings.

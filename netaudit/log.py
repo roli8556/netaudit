@@ -106,6 +106,30 @@ class ProjectLog:
             file.write(line)
         self.entries.append(entry)
 
+    def find(
+        self,
+        category: LogCategory | None = None,
+        level: LogLevel | None = None,
+        since: datetime | None = None,
+        text: str | None = None,
+    ) -> list[LogEntry]:
+        """Return a new list of the entries that match every filter given, oldest first. None means any.
+
+        since: only entries at or after this time. text: only entries whose message contains it,
+        ignoring upper and lower case. Only reads the entries in memory, never the file."""
+        result = []
+        for entry in self.entries:
+            if category is not None and entry.category != category:
+                continue
+            if level is not None and entry.level != level:
+                continue
+            if since is not None and entry.time < since:
+                continue
+            if text is not None and text.lower() not in entry.message.lower():
+                continue
+            result.append(entry)
+        return result
+
     def _ends_with_half_line(self) -> bool:
         """Return True if the file doesn't end with a line break, as after an interrupted write."""
         if not self.path.exists() or self.path.stat().st_size == 0:
