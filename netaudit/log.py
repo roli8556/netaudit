@@ -76,6 +76,7 @@ class ProjectLog:
 
     path: Path
     entries: list[LogEntry] = field(default_factory=list)
+    _last_number: int = field(default=0, init=False)  # highest number in the file, set by load and write
 
     def load(self) -> None:
         """Read all entries from the file into self.entries. A missing file means no entries.
@@ -84,6 +85,7 @@ class ProjectLog:
         about it is added to self.entries only, not to the file, so loading never changes the file."""
         if not self.path.exists():
             self.entries = []
+            self._last_number = 0
             return
         entries = []
         damaged = []
@@ -95,6 +97,8 @@ class ProjectLog:
                 entries.append(LogEntry.from_line(line))
             except (ValueError, KeyError, TypeError):
                 damaged.append(number)
+        # max, not the last entry: if lines were moved around, the last one isn't the highest
+        self._last_number = max((entry.number for entry in entries), default=0)
         for number in damaged:
             message = f"Line {number} in the log is damaged and was skipped"
             entries.append(LogEntry(message, LogCategory.MISC, LogLevel.WARNING))
@@ -105,13 +109,14 @@ class ProjectLog:
 
         Create the entry right before writing it, so its time is when it happened.
         Raises FileNotFoundError if the folder doesn't exist, and then the entry and self.entries are unchanged."""
-        number = self._next_number()
+        number = self._last_number + 1
         line = replace(entry, number=number).to_line() + "\n"  # a copy, so a failed write leaves entry as it was
         if self._ends_with_half_line():
             line = "\n" + line  # don't glue the new entry onto a damaged line
         with self.path.open("a", encoding="utf-8") as file:
             file.write(line)
         entry.number = number
+        self._last_number = number
         self.entries.append(entry)
 
     def find(
@@ -145,13 +150,6 @@ class ProjectLog:
                 continue
             result.append(entry)
         return result
-
-    def _next_number(self) -> int:
-        """Return the number for the next entry: one more than the highest so far, or 1 for the first.
-
-        Not len(entries) + 1: skipped damaged lines and the warnings about them would shift the numbers."""
-        numbers = [entry.number for entry in self.entries if entry.number is not None]
-        return max(numbers, default=0) + 1
 
     def _ends_with_half_line(self) -> bool:
         """Return True if the file doesn't end with a line break, as after an interrupted write."""

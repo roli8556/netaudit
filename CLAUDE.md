@@ -83,7 +83,7 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 95 passed, 1 xfailed (the plain-text password test, until part B).
+  Expected: 97 passed, 1 xfailed (the plain-text password test, until part B).
 - Last finished step: log entries have a sequence number, and `find` filters by a number range. The log is done.
 - Next step: validation, starting with the IP check in Host, then the menu.
 
@@ -147,7 +147,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   Finding severity will be its own enum on the Finding class (Milestone 5).
 - ProjectLog keeps all entries in memory. `write(entry)` writes to the file first, then to the list.
   Create a LogEntry right before writing it, so its time is when it happened.
-  `write` gives each entry its number: highest so far + 1 (not len + 1). None = not in the file, as for
+  `write` gives each entry its number: `_last_number` + 1 (not len + 1). `load` sets `_last_number` to the
+  highest number in the file (max, so moved lines can't cause a repeat), `write` updates it after writing. None = not in the file, as for
   the in-memory warnings about damaged lines. A failed write leaves the entry without a number.
   A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
   `write` adds a line break first if the file ends with a half-written line.

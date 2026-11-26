@@ -257,3 +257,28 @@ def test_find_without_number_filter_includes_unnumbered(numbered: ProjectLog) ->
     """Entries without a number are only left out when filtering on numbers."""
     assert len(numbered.find()) == 6
     assert len(numbered.find(from_number=1)) == 5
+
+
+def test_next_number_follows_the_highest_even_out_of_order(log: ProjectLog) -> None:
+    """If lines were moved around, the next number is still one above the highest."""
+    for number in (1, 3, 2):
+        line = LogEntry(f"Entry {number}", LogCategory.MISC, number=number).to_line()
+        with log.path.open("a", encoding="utf-8") as file:
+            file.write(line + "\n")
+    log.load()
+    entry = LogEntry("Project loaded", LogCategory.PROJECT)
+    log.write(entry)
+    assert entry.number == 4
+
+
+def test_failed_write_does_not_use_up_a_number(log: ProjectLog, tmp_path: Path) -> None:
+    """After a failed write, the next successful one gets the number the failed one would have had."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT))
+    real_path = log.path
+    log.path = tmp_path / "missing" / "project.log"
+    with pytest.raises(FileNotFoundError):
+        log.write(LogEntry("Lost", LogCategory.MISC))
+    log.path = real_path
+    entry = LogEntry("Project loaded", LogCategory.PROJECT)
+    log.write(entry)
+    assert entry.number == 2
