@@ -34,5 +34,41 @@ class Host:
             raise ValueError(f"Invalid IPv4 address: {self.ip!r}") from error
         if not isinstance(self.ssh_username, str) or not self.ssh_username.strip():
             raise ValueError("SSH username cannot be empty")
+        if not self.ssh_username.isprintable():
+            raise ValueError(f"SSH username contains a control character: {self.ssh_username!r}")
+        # Passwords are typed into the device's CLI, so a line break in one could send a second command.
+        # The messages never show the password itself.
         if not isinstance(self.ssh_password, str) or not self.ssh_password:
             raise ValueError("SSH password cannot be empty")
+        if not self.ssh_password.isprintable():
+            raise ValueError("SSH password contains a control character, such as a line break")
+        if self.enable_password is not None:
+            if not isinstance(self.enable_password, str) or not self.enable_password:
+                raise ValueError("Enable password must be text, or None for no enable password")
+            if not self.enable_password.isprintable():
+                raise ValueError("Enable password contains a control character, such as a line break")
+        if self.hostname is not None and not is_valid_hostname(self.hostname):
+            raise ValueError(f"Invalid hostname: {self.hostname!r}")
+        if self.available_commands is not None:
+            if not isinstance(self.available_commands, list):
+                raise ValueError(f"Available commands must be a list, got {self.available_commands!r}")
+            for command in self.available_commands:
+                if not isinstance(command, str):
+                    raise ValueError(f"Available commands must be text, got {command!r}")
+
+
+def is_valid_hostname(name: object) -> bool:
+    """Return True if name follows Cisco's hostname rules.
+
+    It must start with a letter, end with a letter or digit, contain only the letters a-z and A-Z,
+    digits and hyphens, and be at most 63 characters. Also for the parser, as device output is untrusted."""
+    if not isinstance(name, str) or not 1 <= len(name) <= 63:
+        return False
+    if not name.isascii():  # isalpha() and isalnum() would also accept letters like å
+        return False
+    if not name[0].isalpha() or not name[-1].isalnum():
+        return False
+    for character in name:
+        if not (character.isalnum() or character == "-"):
+            return False
+    return True

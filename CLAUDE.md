@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 130 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: hostname and privilege level are None until read from the device.
-- Next step: more validation (username characters, port and timeout, project name, duplicate IPs), then the menu.
+  Expected: 162 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: Host checks every field (`is_valid_hostname` for Cisco's hostname rules).
+- Next step: more validation (port and timeout, project name, duplicate IPs), then the menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -136,6 +136,10 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `hostname` and `privilege_level` are read from the device after login, not typed in. None = not read yet.
   `privilege_level` is the SSH user's level at login (0-15, checked when set). It is not a write protection.
 - Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
+- `__post_init__` only runs when a Host is created, not when a field is assigned later. The parser must check
+  values before assigning them, with the same functions (like `is_valid_hostname`) so each rule exists once.
+- Usernames and passwords can't contain control characters: a line break in a password typed into the CLI
+  could send a second command. Error messages never show a password.
 - `available_commands` is a list, None = not checked (test with `is None`). It is information only: the commands
   netaudit sends come from a fixed list in the code, never from a project file.
 - SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
@@ -172,8 +176,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Deleting projects: in the project.py docstring, not planned yet.
 
 ### Known gaps (all reproduced)
-- Not validated yet: hostname (with the parser), characters in the username, port, timeout, project name, duplicate IPs,
-  and the types of the other fields.
+- Not validated yet: port, timeout, project name, duplicate IPs, and the types of the ProjectConfig fields.
 - Damaged files give unclear errors (KeyError, TypeError, JSONDecodeError).
 - An interrupted `Scan.write` leaves a broken file, and then the project won't load.
 - A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
