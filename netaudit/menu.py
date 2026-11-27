@@ -10,7 +10,7 @@ from netaudit.project import Project, ProjectConfig, ProjectIssue
 # Shown after creating or loading a project, until part B encrypts the files.
 NOT_ENCRYPTED_WARNING = "WARNING: this project is not encrypted yet. Use fake passwords only."
 
-# Rows per page in show_pages.
+# Rows per page in print_as_pages.
 PAGE_SIZE = 20
 
 # Names Windows reserves for devices: a folder can't have them, whatever the case.
@@ -128,7 +128,7 @@ class Menu:
             accept_key = "yes" if host.accept_unknown_host_key else "no"
             print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
 
-    def show_pages(self, header: str, rows: list[str]) -> None:
+    def print_as_pages(self, header: str, rows: list[str]) -> None:
         """Print the header and rows one page of PAGE_SIZE rows at a time, like the more command.
 
         After every page but the last, Enter shows the next page and q goes back.
@@ -273,7 +273,7 @@ def is_safe_folder_name(name: str) -> bool:
     return True
 
 
-def printable(text: str) -> str:
+def make_printable(text: str) -> str:
     """Return text with every character that isn't printable shown as its escape code, like \n or \x1b.
 
     Use it on device text and log messages before printing them: a line break could fake an extra

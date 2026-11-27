@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from netaudit.menu import Menu, is_safe_folder_name, printable
+from netaudit.menu import Menu, is_safe_folder_name, make_printable
 from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig
 
@@ -532,9 +532,9 @@ def test_missing_folders_q_closes_the_project(
 
 
 @pytest.mark.parametrize("text", ["", "Added host 192.0.2.20", "Projekt 'kontor' öppnat", r"C:\Users"])
-def test_printable_keeps_printable_text(text: str) -> None:
+def test_make_printable_keeps_printable_text(text: str) -> None:
     """Printable text, also outside English and with backslashes, comes back unchanged."""
-    assert printable(text) == text
+    assert make_printable(text) == text
 
 
 @pytest.mark.parametrize(
@@ -546,60 +546,60 @@ def test_printable_keeps_printable_text(text: str) -> None:
         ("end\r", r"end\r"),
     ],
 )
-def test_printable_escapes_control_characters(text: str, expected: str) -> None:
+def test_make_printable_escapes_control_characters(text: str, expected: str) -> None:
     """Control characters are shown as escape codes, so the result is one line without control codes."""
-    assert printable(text) == expected
+    assert make_printable(text) == expected
 
 
 ROWS = ["row 1", "row 2", "row 3", "row 4", "row 5"]
 
 
-def test_show_pages_on_one_page_asks_nothing(
+def test_print_as_pages_on_one_page_asks_nothing(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Rows that fit on one page are all printed. No fake_input: if it asked, the real input() would fail."""
     monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
-    Menu().show_pages("HEADER", ROWS[:2])
+    Menu().print_as_pages("HEADER", ROWS[:2])
     assert capsys.readouterr().out == "HEADER\nrow 1\nrow 2\n"
 
 
-def test_show_pages_enter_shows_every_page(
+def test_print_as_pages_enter_shows_every_page(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Enter after each page shows all rows, with the header on every page and no question after the last."""
     monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
     fake_input(monkeypatch, ["", ""])
-    Menu().show_pages("HEADER", ROWS)
+    Menu().print_as_pages("HEADER", ROWS)
     out = capsys.readouterr().out
     for row in ROWS:
         assert row in out
     assert out.count("HEADER") == 3
 
 
-def test_show_pages_q_stops_early(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_print_as_pages_q_stops_early(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """q after the first page goes back without showing the rest."""
     monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
     fake_input(monkeypatch, ["Q"])
-    Menu().show_pages("HEADER", ROWS)
+    Menu().print_as_pages("HEADER", ROWS)
     out = capsys.readouterr().out
     assert "row 2" in out
     assert "row 3" not in out
 
 
-def test_show_pages_bad_answer_asks_again(
+def test_print_as_pages_bad_answer_asks_again(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Another answer shows an error and asks again on the same page."""
     monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
     fake_input(monkeypatch, ["x", "q"])
-    Menu().show_pages("HEADER", ROWS)
+    Menu().print_as_pages("HEADER", ROWS)
     captured = capsys.readouterr()
     assert "Please press Enter or type q." in captured.err
     assert captured.out.count("HEADER") == 1
     assert "row 3" not in captured.out
 
 
-def test_show_pages_without_rows_prints_nothing(capsys: pytest.CaptureFixture[str]) -> None:
+def test_print_as_pages_without_rows_prints_nothing(capsys: pytest.CaptureFixture[str]) -> None:
     """An empty list prints nothing, not even the header."""
-    Menu().show_pages("HEADER", [])
+    Menu().print_as_pages("HEADER", [])
     assert capsys.readouterr().out == ""
