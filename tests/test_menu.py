@@ -672,11 +672,38 @@ def test_show_log_menu_refuses_other_choices(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
     """Only the listed choices work in the log menu."""
-    fake_input(monkeypatch, ["4", "q"])
+    fake_input(monkeypatch, ["7", "q"])
     menu = Menu()
     menu.project = saved
     menu.show_log_menu()
-    assert "Please type 1, 2, 3 or q." in capsys.readouterr().err
+    assert "Please type 1, 2, 3, 4 or q." in capsys.readouterr().err
+
+
+def test_show_log_menu_filters_by_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """The message filter ignores upper and lower case, and Show only shows the entries that contain it."""
+    fake_input(monkeypatch, ["4", "ADDED HOST", "1", "q"])  # Message, the text, Show, Back
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    assert "4. Message (ADDED HOST)" in out
+    assert "Added host 192.0.2.11" in out
+    assert "Project created" not in out
+
+
+def test_show_log_menu_enter_clears_the_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Enter at the message question sets it back to any."""
+    fake_input(monkeypatch, ["4", "added", "4", "", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    assert "4. Message (added)" in out
+    assert out.count("4. Message (any)") == 2  # at the start and after Enter
 
 
 def test_show_log_menu_filters_by_level(
