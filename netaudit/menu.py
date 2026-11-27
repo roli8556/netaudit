@@ -140,9 +140,9 @@ class Menu:
         filters = LogFilter()
         while True:
             title = f"Log ({len(self.project.log.entries)} entries)"
-            active = filters.get_filters()
-            if active:
-                title += f" - {active}"
+            active_filters = filters.get_filters()
+            if active_filters:
+                title += f" - {active_filters}"
             level = filters.level.value if filters.level is not None else "any"
             print()
             print(title)
