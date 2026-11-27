@@ -606,19 +606,15 @@ def test_print_as_pages_without_rows_prints_nothing(capsys: pytest.CaptureFixtur
     assert capsys.readouterr().out == ""
 
 
-def test_show_log_when_empty(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
-    """A project with nothing logged says so. Project() itself doesn't touch the disk or log anything."""
-    menu = Menu()
-    menu.project = Project(tmp_path / "office", ProjectConfig("office"))
-    menu.show_log()
-    assert "The log is empty." in capsys.readouterr().out
+def test_show_log_without_entries(capsys: pytest.CaptureFixture[str]) -> None:
+    """An empty list says so instead of printing an empty table."""
+    Menu().show_log([])
+    assert capsys.readouterr().out == "\nNo log entries to show.\n"
 
 
-def test_show_log_in_file_order(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
-    """The entries are shown oldest first, with their number, level and category."""
-    menu = Menu()
-    menu.project = saved
-    menu.show_log()
+def test_show_log_in_the_order_given(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
+    """The entries are shown in the order of the list, with their number, level and category."""
+    Menu().show_log(saved.log.entries)
     out = capsys.readouterr().out
     created = out.index("Project created")
     added = out.index("Added host 192.0.2.11")
@@ -629,9 +625,7 @@ def test_show_log_in_file_order(capsys: pytest.CaptureFixture[str], saved: Proje
 def test_show_log_entry_without_number(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
     """An entry that isn't in the file (a warning about a damaged line) shows - as its number."""
     saved.log.entries.append(LogEntry("Skipped damaged line 3", LogCategory.MISC, LogLevel.WARNING))
-    menu = Menu()
-    menu.project = saved
-    menu.show_log()
+    Menu().show_log(saved.log.entries)
     rows = capsys.readouterr().out.splitlines()
     assert rows[-1].startswith("-     ")
     assert rows[-1].endswith("WARNING   MISC      Skipped damaged line 3")
@@ -640,9 +634,7 @@ def test_show_log_entry_without_number(capsys: pytest.CaptureFixture[str], saved
 def test_show_log_keeps_a_message_on_one_row(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
     """A line break in a message is shown as \\n, so it can't fake an extra row."""
     saved.log.entries.append(LogEntry("fake\n7     2026-01-01 00:00:00  INFO      CHECK     All passed", LogCategory.HOST))
-    menu = Menu()
-    menu.project = saved
-    menu.show_log()
+    Menu().show_log(saved.log.entries)
     rows = capsys.readouterr().out.splitlines()
     assert rows[-1].endswith(r"fake\n7     2026-01-01 00:00:00  INFO      CHECK     All passed")
     assert not any(row.startswith("7     ") for row in rows)
@@ -651,11 +643,37 @@ def test_show_log_keeps_a_message_on_one_row(capsys: pytest.CaptureFixture[str],
 def test_show_log_from_project_menu(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
-    """Choice 4 shows the log, then the project menu comes back."""
-    fake_input(monkeypatch, ["4", "q"])
+    """Choice 4 opens the log menu, 1 shows the log, and q goes back to the project menu."""
+    fake_input(monkeypatch, ["4", "1", "q", "q"])
     menu = Menu()
     menu.project = saved
     menu.project_menu()
     out = capsys.readouterr().out
     assert "Project created" in out
+    assert out.count("Log (") == 2  # the log menu again after showing
     assert out.count("Project: office") == 2
+
+
+def test_show_log_menu_counts_the_entries(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """The title shows how many entries match out of all of them, and q goes back without showing any."""
+    fake_input(monkeypatch, ["q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    total = len(saved.log.entries)
+    assert f"Log ({total} of {total} entries)" in out
+    assert "Project created" not in out
+
+
+def test_show_log_menu_refuses_other_choices(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Only the listed choices work in the log menu."""
+    fake_input(monkeypatch, ["2", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    assert "Please type 1 or q." in capsys.readouterr().err

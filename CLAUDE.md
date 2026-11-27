@@ -83,9 +83,11 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 346 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: show log 3/3, `show_log` and option 4 (oldest first, pages with `print_as_pages`).
-- Next step: filters for show log (with `ProjectLog.find` and `sort_entries`).
+  Expected: 348 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log filters 1/6, `show_log_menu` (1. Show, q. Back) and `show_log(entries)`.
+- Next step: log filters 2/6, level filter with `choose_from_enum(title, enum_class)`.
+  Then 3 category, 4 search text, 5 order (newest first), 6 clear filters. Not planned yet: since, number range.
+  The filters are local variables in `show_log_menu`, so they reset each time it opens.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.

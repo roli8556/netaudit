@@ -5,6 +5,7 @@ from getpass import getpass
 from pathlib import Path
 
 from netaudit.host import Host
+from netaudit.log import LogEntry
 from netaudit.project import Project, ProjectConfig, ProjectIssue
 
 # Shown after creating or loading a project, until part B encrypts the files.
@@ -102,7 +103,7 @@ class Menu:
                 elif choice == "3":
                     self.remove_host_menu()
                 elif choice == "4":
-                    self.show_log()
+                    self.show_log_menu()
                 elif choice.lower() == "q":
                     self.project = None
                 else:
@@ -131,15 +132,30 @@ class Menu:
             accept_key = "yes" if host.accept_unknown_host_key else "no"
             print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
 
-    def show_log(self) -> None:
-        """Print the open project's log, oldest first (file order), a page at a time with print_as_pages.
+    def show_log_menu(self) -> None:
+        """Show the log menu of the open project until the user goes back. Only reads the log in memory."""
+        while True:
+            entries = self.project.log.find()  # a new list; the filters will be passed here
+            print()
+            print(f"Log ({len(entries)} of {len(self.project.log.entries)} entries)")
+            print("  1. Show")
+            print("  q. Back")
+            choice = self.ask("Choose: ")
+            if choice == "1":
+                self.show_log(entries)
+            elif choice.lower() == "q":
+                return
+            else:
+                print("Please type 1 or q.", file=sys.stderr)
+
+    def show_log(self, entries: list[LogEntry]) -> None:
+        """Print these log entries in the order given, as a table, a page at a time with print_as_pages.
 
         Entries without a number (warnings about damaged lines, never in the file) show - as number.
-        Messages go through make_printable, since they can contain device text. Only reads memory."""
+        Messages go through make_printable, since they can contain device text."""
         print()
-        entries = self.project.log.entries
         if not entries:
-            print("The log is empty.")
+            print("No log entries to show.")
             return
         header = f"{'#':<6}{'Time':<21}{'Level':<10}{'Category':<10}Message"
         rows = []
