@@ -657,14 +657,14 @@ def test_show_log_from_project_menu(
 def test_show_log_menu_counts_the_entries(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
-    """The title shows how many entries match out of all of them, and q goes back without showing any."""
+    """The title shows how many entries the log has and no filters, and q goes back without showing any."""
     fake_input(monkeypatch, ["q"])
     menu = Menu()
     menu.project = saved
     menu.show_log_menu()
     out = capsys.readouterr().out
-    total = len(saved.log.entries)
-    assert f"Log ({total} of {total} entries)" in out
+    assert f"Log ({len(saved.log.entries)} entries)\n" in out
+    assert "2. Level (any)" in out
     assert "Project created" not in out
 
 
@@ -672,8 +672,60 @@ def test_show_log_menu_refuses_other_choices(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
     """Only the listed choices work in the log menu."""
-    fake_input(monkeypatch, ["2", "q"])
+    fake_input(monkeypatch, ["3", "q"])
     menu = Menu()
     menu.project = saved
     menu.show_log_menu()
-    assert "Please type 1 or q." in capsys.readouterr().err
+    assert "Please type 1, 2 or q." in capsys.readouterr().err
+
+
+def test_show_log_menu_filters_by_level(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """After choosing WARNING as level, Show only shows warnings, and the title and menu say so."""
+    saved.log.write(LogEntry("Host 192.0.2.11 didn't answer", LogCategory.HOST, LogLevel.WARNING))
+    fake_input(monkeypatch, ["2", "2", "1", "q"])  # Level, 2 = WARNING, Show, Back
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    assert "- level: WARNING" in out
+    assert "2. Level (WARNING)" in out
+    assert "Host 192.0.2.11 didn't answer" in out
+    assert "Added host 192.0.2.11" not in out
+
+
+def test_show_log_menu_enter_clears_the_level(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Enter at the level list sets it back to any, so Show shows everything again."""
+    fake_input(monkeypatch, ["2", "2", "2", "", "1", "q"])  # WARNING, then Enter for any, Show, Back
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    assert out.count("2. Level (any)") == 3  # at the start, after Enter, after Show
+    assert "Added host 192.0.2.11" in out
+
+
+def test_choose_from_enum_lists_the_members(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The members are numbered from 1 in the order they are defined, and the number picks one."""
+    fake_input(monkeypatch, ["2"])
+    assert Menu().choose_from_enum("Level", LogLevel) == LogLevel.WARNING
+    out = capsys.readouterr().out
+    assert "Level\n  1. INFO\n  2. WARNING\n  3. ERROR\n  4. SECURITY\n" in out
+
+
+def test_choose_from_enum_enter_means_any(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enter, also with spaces around it, returns None."""
+    fake_input(monkeypatch, ["  "])
+    assert Menu().choose_from_enum("Category", LogCategory) is None
+
+
+def test_choose_from_enum_asks_again(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """A number outside the list, text, or a non-ASCII digit asks again until the answer is valid."""
+    fake_input(monkeypatch, ["0", "6", "abc", "²", "-1", "5"])
+    assert Menu().choose_from_enum("Category", LogCategory) == LogCategory.MISC
+    assert capsys.readouterr().err.count("Please type a number from 1 to 5, or press Enter.") == 5

@@ -1,11 +1,12 @@
 """The text menu: the only part of netaudit that talks to the user."""
 
 import sys
+from enum import Enum
 from getpass import getpass
 from pathlib import Path
 
 from netaudit.host import Host
-from netaudit.log import LogEntry
+from netaudit.log import LogEntry, LogFilter, LogLevel
 from netaudit.project import Project, ProjectConfig, ProjectIssue
 
 # Shown after creating or loading a project, until part B encrypts the files.
@@ -133,20 +134,55 @@ class Menu:
             print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
 
     def show_log_menu(self) -> None:
-        """Show the log menu of the open project until the user goes back. Only reads the log in memory."""
+        """Show the log menu of the open project until the user goes back. Only reads the log in memory.
+
+        The filters start empty every time the menu opens, and Show only shows the entries that match them."""
+        filters = LogFilter()
         while True:
-            entries = self.project.log.find()  # a new list; the filters will be passed here
+            title = f"Log ({len(self.project.log.entries)} entries)"
+            active = filters.get_filters()
+            if active:
+                title += f" - {active}"
+            level = filters.level.value if filters.level is not None else "any"
             print()
-            print(f"Log ({len(entries)} of {len(self.project.log.entries)} entries)")
+            print(title)
             print("  1. Show")
+            print(f"  2. Level ({level})")
             print("  q. Back")
             choice = self.ask("Choose: ")
             if choice == "1":
+                entries = self.project.log.find(
+                    level=filters.level,
+                    category=filters.category,
+                    text=filters.text,
+                    since=filters.since,
+                    from_number=filters.from_number,
+                    to_number=filters.to_number,
+                )
                 self.show_log(entries)
+            elif choice == "2":
+                filters.level = self.choose_from_enum("Level", LogLevel)
             elif choice.lower() == "q":
                 return
             else:
-                print("Please type 1 or q.", file=sys.stderr)
+                print("Please type 1, 2 or q.", file=sys.stderr)
+
+    def choose_from_enum(self, title: str, enum_class: type[Enum]) -> Enum | None:
+        """Print the members of enum_class numbered from 1 and return the one chosen.
+
+        Enter returns None (any). Any other answer that isn't a listed number asks again."""
+        members = list(enum_class)  # the members in the order they are defined
+        print()
+        print(title)
+        for number, member in enumerate(members, start=1):
+            print(f"  {number}. {member.value}")
+        while True:
+            answer = input("Number (Enter for any): ").strip()
+            if answer == "":
+                return None
+            if answer.isascii() and answer.isdigit() and 1 <= int(answer) <= len(members):
+                return members[int(answer) - 1]
+            print(f"Please type a number from 1 to {len(members)}, or press Enter.", file=sys.stderr)
 
     def show_log(self, entries: list[LogEntry]) -> None:
         """Print these log entries in the order given, as a table, a page at a time with print_as_pages.
