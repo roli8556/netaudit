@@ -672,11 +672,11 @@ def test_show_log_menu_refuses_other_choices(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
     """Only the listed choices work in the log menu."""
-    fake_input(monkeypatch, ["3", "q"])
+    fake_input(monkeypatch, ["4", "q"])
     menu = Menu()
     menu.project = saved
     menu.show_log_menu()
-    assert "Please type 1, 2 or q." in capsys.readouterr().err
+    assert "Please type 1, 2, 3 or q." in capsys.readouterr().err
 
 
 def test_show_log_menu_filters_by_level(
@@ -693,6 +693,20 @@ def test_show_log_menu_filters_by_level(
     assert "2. Level (WARNING)" in out
     assert "Host 192.0.2.11 didn't answer" in out
     assert "Added host 192.0.2.11" not in out
+
+
+def test_show_log_menu_filters_by_category(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """After choosing HOST as category, Show only shows HOST entries, and the menu says so."""
+    fake_input(monkeypatch, ["3", "2", "1", "q"])  # Category, 2 = HOST, Show, Back
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    assert "3. Category (HOST)" in out
+    assert "Added host 192.0.2.11" in out
+    assert "Project created" not in out
 
 
 def test_show_log_menu_enter_clears_the_level(

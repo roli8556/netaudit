@@ -83,12 +83,13 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 364 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log filters 2b, `choose_from_enum` and `2. Level` in `show_log_menu`.
-- Next step: log filters 3, `3. Category` with `choose_from_enum`.
+  Expected: 365 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log filters 3, `3. Category` in `show_log_menu` (the title shows total and matches).
+- Next step: log filters 4, search text.
   Then 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
   The filters are a local `LogFilter` in `show_log_menu`, so they reset each time it opens (decided by me).
-  `find` runs only when Show is chosen (decided by me), so the title shows the total, not the matches.
+  When a filter is set, `find` runs at the top of the loop for the match count, and Show uses that list.
+  With no filter, Show uses the whole log. So every LogFilter field must also be in `get_filters()`.
   `newest_first` is a separate local variable: order isn't a filter, so clear filters keeps it.
 
 ### Temporary exception to the security requirements (decided by me)

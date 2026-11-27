@@ -6,7 +6,7 @@ from getpass import getpass
 from pathlib import Path
 
 from netaudit.host import Host
-from netaudit.log import LogEntry, LogFilter, LogLevel
+from netaudit.log import LogEntry, LogFilter, LogLevel, LogCategory
 from netaudit.project import Project, ProjectConfig, ProjectIssue
 
 # Shown after creating or loading a project, until part B encrypts the files.
@@ -156,6 +156,7 @@ class Menu:
             print(title)
             print("  1. Show")
             print(f"  2. Level ({level})")
+            print(f"  3. Category ({filters.category.value if filters.category is not None else 'any'})")
             print("  q. Back")
             choice = self.ask("Choose: ")
             if choice == "1":
@@ -165,10 +166,12 @@ class Menu:
                     self.show_log(self.project.log.entries)
             elif choice == "2":
                 filters.level = self.choose_from_enum("Level", LogLevel)
+            elif choice == "3":
+                filters.category = self.choose_from_enum("Category", LogCategory)   
             elif choice.lower() == "q":
                 return
             else:
-                print("Please type 1, 2 or q.", file=sys.stderr)
+                print("Please type 1, 2, 3 or q.", file=sys.stderr)
 
     def choose_from_enum(self, title: str, enum_class: type[Enum]) -> Enum | None:
         """Print the members of enum_class numbered from 1 and return the one chosen.
