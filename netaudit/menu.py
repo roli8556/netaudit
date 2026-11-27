@@ -140,8 +140,7 @@ class Menu:
         filters = LogFilter()
         while True:
             title = f"Log ({len(self.project.log.entries)} total entries)"
-            active_filters = filters.get_filters()
-            if active_filters:
+            if filters:  # at least one filter is set (LogFilter.__bool__)
                 filtered_entries = self.project.log.find(
                     level=filters.level,
                     category=filters.category,
@@ -160,7 +159,7 @@ class Menu:
             print("  q. Back")
             choice = self.ask("Choose: ")
             if choice == "1":
-                if active_filters:
+                if filters:
                     self.show_log(filtered_entries)
                 else:
                     self.show_log(self.project.log.entries)

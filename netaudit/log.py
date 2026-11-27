@@ -88,23 +88,11 @@ class LogFilter:
     from_number: int | None = None
     to_number: int | None = None
 
-    def get_filters(self) -> str:
-        """Return the filters that are set, like "level: WARNING, text: '192'", or "" when none are set."""
-        parts = []
-        if self.level is not None:
-            parts.append(f"level: {self.level.value}")
-        if self.category is not None:
-            parts.append(f"category: {self.category.value}")
-        if self.text is not None:
-            parts.append(f"text: {self.text!r}")  # quotes show spaces, repr escapes control characters
-        if self.since is not None:
-            parts.append(f"since: {self.since.strftime('%Y-%m-%d %H:%M')}")
-        if self.from_number is not None or self.to_number is not None:
-            # A missing end shows as nothing: "10-" is from 10, "-50" is up to 50.
-            start = str(self.from_number) if self.from_number is not None else ""
-            end = str(self.to_number) if self.to_number is not None else ""
-            parts.append(f"numbers: {start}-{end}")
-        return ", ".join(parts)
+    def __bool__(self) -> bool:
+        """Return True if at least one filter is set, so `if filters:` reads as "is anything filtered".
+
+        Compares with a new LogFilter (every field None), so a new field is included by itself."""
+        return self != LogFilter()
 
 
 @dataclass

@@ -83,13 +83,13 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 365 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log filters 3, `3. Category` in `show_log_menu` (the title shows total and matches).
+  Expected: 362 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: `LogFilter.__bool__` replaces `get_filters()` (the title shows total and matches, not the filters).
 - Next step: log filters 4, search text.
   Then 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
   The filters are a local `LogFilter` in `show_log_menu`, so they reset each time it opens (decided by me).
   When a filter is set, `find` runs at the top of the loop for the match count, and Show uses that list.
-  With no filter, Show uses the whole log. So every LogFilter field must also be in `get_filters()`.
+  With no filter, Show uses the whole log. `if filters:` uses `LogFilter.__bool__` (True if any field isn't None).
   `newest_first` is a separate local variable: order isn't a filter, so clear filters keeps it.
 
 ### Temporary exception to the security requirements (decided by me)

@@ -326,34 +326,24 @@ def test_sort_does_not_change_the_given_list(unsorted: list[LogEntry]) -> None:
 
 
 def test_new_filter_has_nothing_set() -> None:
-    """A new LogFilter filters nothing, so get_filters returns an empty string."""
+    """A new LogFilter has every field None and counts as False: nothing is filtered."""
     filters = LogFilter()
     assert filters == LogFilter(None, None, None, None, None, None)
-    assert filters.get_filters() == ""
+    assert not filters
 
 
 @pytest.mark.parametrize(
-    "filters, expected",
+    "filters",
     [
-        (LogFilter(level=LogLevel.WARNING), "level: WARNING"),
-        (LogFilter(category=LogCategory.HOST), "category: HOST"),
-        (LogFilter(text="192.0.2"), "text: '192.0.2'"),
-        (LogFilter(text="admin "), "text: 'admin '"),  # the quotes show the space
-        (LogFilter(text="a\nb"), r"text: 'a\nb'"),  # a line break can't break the title
-        (LogFilter(since=datetime(2026, 11, 27, 14, 5, 59)), "since: 2026-11-27 14:05"),
-        (LogFilter(from_number=10, to_number=50), "numbers: 10-50"),
-        (LogFilter(from_number=10), "numbers: 10-"),
-        (LogFilter(to_number=50), "numbers: -50"),
+        LogFilter(level=LogLevel.WARNING),
+        LogFilter(category=LogCategory.HOST),
+        LogFilter(text="192.0.2"),
+        LogFilter(text=""),  # set, even though it is empty: only None means not set
+        LogFilter(since=datetime(2026, 11, 27, 14, 5)),
+        LogFilter(from_number=0),  # 0 is set too: the check is against None, not against falsy values
+        LogFilter(to_number=50),
     ],
 )
-def test_get_filters_one_field(filters: LogFilter, expected: str) -> None:
-    """Each field that is set is described on its own."""
-    assert filters.get_filters() == expected
-
-
-def test_get_filters_all_fields_in_order() -> None:
-    """With every field set, the parts come in field order, separated by commas."""
-    filters = LogFilter(
-        LogLevel.ERROR, LogCategory.SCAN, "ssh", datetime(2026, 11, 27, 9, 0), from_number=1, to_number=9
-    )
-    assert filters.get_filters() == "level: ERROR, category: SCAN, text: 'ssh', since: 2026-11-27 09:00, numbers: 1-9"
+def test_filter_with_any_field_set_is_true(filters: LogFilter) -> None:
+    """One field set is enough for `if filters:` to be True."""
+    assert filters
