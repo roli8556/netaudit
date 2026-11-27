@@ -88,7 +88,7 @@ class LogFilter:
     from_number: int | None = None
     to_number: int | None = None
 
-    def describe(self) -> str:
+    def get_filters(self) -> str:
         """Return the filters that are set, like "level: WARNING, text: '192'", or "" when none are set."""
         parts = []
         if self.level is not None:
