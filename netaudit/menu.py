@@ -126,8 +126,9 @@ class Menu:
             print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
 
     def add_host_menu(self) -> None:
-        """Ask for a new host's IP, SSH login and host key choice, and add it to the open project.
+        """Ask for a new host's IP, SSH login, enable password and host key choice, and add it to the open project.
 
+        Enter at the enable password means the host has none (None).
         Raises ValueError for a bad answer or an IP that is already in the project (Host and
         add_host check them), and OSError if hosts.json can't be saved. Nothing is added then."""
         print()
@@ -135,10 +136,14 @@ class Menu:
         ip = self.ask("IP address: ")
         username = self.ask("SSH username: ")
         password = getpass("SSH password: ")  # not stripped: spaces can be part of a password
+        # Host refuses "" on purpose, so Enter has to become None here. Not stripped either.
+        enable_password = getpass("Enable password (Enter for none): ") or None
         answer = input("Accept an unknown SSH host key without asking? [y/N]: ").strip().lower()
         if answer not in ("", "y", "n"):
             raise ValueError(f"{answer!r} is not y or n")
-        host = Host(ip, username, password, accept_unknown_host_key=(answer == "y"))
+        host = Host(
+            ip, username, password, enable_password=enable_password, accept_unknown_host_key=(answer == "y")
+        )
         self.project.add_host(host)
         print(f"Added host {host.ip}")
 

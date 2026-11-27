@@ -15,9 +15,10 @@ def fake_input(monkeypatch: pytest.MonkeyPatch, answers: list[str]) -> None:
     monkeypatch.setattr("builtins.input", lambda prompt="": next(remaining))
 
 
-def fake_getpass(monkeypatch: pytest.MonkeyPatch, password: str) -> None:
-    """Make the menu's getpass() return this password, as if the user typed it."""
-    monkeypatch.setattr("netaudit.menu.getpass", lambda prompt="": password)
+def fake_getpass(monkeypatch: pytest.MonkeyPatch, passwords: list[str]) -> None:
+    """Make the menu's getpass() return these passwords one by one, as if the user typed them."""
+    remaining = iter(passwords)
+    monkeypatch.setattr("netaudit.menu.getpass", lambda prompt="": next(remaining))
 
 
 def test_choosing_exit_ends_the_menu(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -298,7 +299,7 @@ def test_add_host_saves_it(
 ) -> None:
     """The new host is added and saved, Enter means no, and the password is never printed."""
     fake_input(monkeypatch, ["192.0.2.20", "admin", answer])
-    fake_getpass(monkeypatch, "fake-new-login")
+    fake_getpass(monkeypatch, ["fake-new-login", ""])
     menu = Menu()
     menu.project = saved
     menu.add_host_menu()
@@ -323,7 +324,7 @@ def test_add_host_with_a_bad_answer_adds_nothing(
 ) -> None:
     """A bad answer raises a clear ValueError, and the project and hosts.json keep only the saved host."""
     fake_input(monkeypatch, answers)
-    fake_getpass(monkeypatch, password)
+    fake_getpass(monkeypatch, [password, ""])
     menu = Menu()
     menu.project = saved
     with pytest.raises(ValueError, match=message):
@@ -332,12 +333,53 @@ def test_add_host_with_a_bad_answer_adds_nothing(
     assert len(Project.load(saved.path).hosts) == 1
 
 
+def test_add_host_with_an_enable_password_saves_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """A typed enable password is stored with the host and never printed."""
+    fake_input(monkeypatch, ["192.0.2.20", "admin", ""])
+    fake_getpass(monkeypatch, ["fake-new-login", "fake-new-enable"])
+    menu = Menu()
+    menu.project = saved
+    menu.add_host_menu()
+    captured = capsys.readouterr()
+    assert "fake-new-enable" not in captured.out + captured.err
+    reloaded = Project.load(saved.path)
+    assert reloaded.hosts[-1] == Host("192.0.2.20", "admin", "fake-new-login", enable_password="fake-new-enable")
+
+
+def test_add_host_without_an_enable_password_stores_none(
+    monkeypatch: pytest.MonkeyPatch, saved: Project
+) -> None:
+    """Enter at the enable password means the host has none: None, not an empty string."""
+    fake_input(monkeypatch, ["192.0.2.20", "admin", ""])
+    fake_getpass(monkeypatch, ["fake-new-login", ""])
+    menu = Menu()
+    menu.project = saved
+    menu.add_host_menu()
+    assert Project.load(saved.path).hosts[-1].enable_password is None
+
+
+def test_add_host_with_a_line_break_in_the_enable_password_adds_nothing(
+    monkeypatch: pytest.MonkeyPatch, saved: Project
+) -> None:
+    """A control character in the enable password is refused, and the message doesn't show the password."""
+    fake_input(monkeypatch, ["192.0.2.20", "admin", ""])
+    fake_getpass(monkeypatch, ["fake-new-login", "fake-enable\nreload"])
+    menu = Menu()
+    menu.project = saved
+    with pytest.raises(ValueError, match="Enable password contains a control character") as error:
+        menu.add_host_menu()
+    assert "fake-enable" not in str(error.value)
+    assert len(Project.load(saved.path).hosts) == 1
+
+
 def test_error_in_project_menu_keeps_the_project_open(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
     """A bad IP shows an error and the project menu again, without showing the password."""
     fake_input(monkeypatch, ["2", "999.0.0.1", "admin", "", "q"])
-    fake_getpass(monkeypatch, "fake-new-login")
+    fake_getpass(monkeypatch, ["fake-new-login", ""])
     menu = Menu()
     menu.project = saved
     menu.project_menu()
