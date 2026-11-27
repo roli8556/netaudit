@@ -83,10 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 336 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: show log 1/3, `printable` (escapes control characters in text before it is shown).
-- Next step: show log 2/3, `show_pages` (pages of LOG_PAGE_SIZE rows, Enter for more, q to go back),
-  then 3/3, `show_log` and option 4 in the project menu.
+  Expected: 341 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: show log 2/3, `show_pages` (pages of PAGE_SIZE rows, Enter for more, q to go back).
+- Next step: show log 3/3, `show_log` and option 4 in the project menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.

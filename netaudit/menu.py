@@ -10,6 +10,9 @@ from netaudit.project import Project, ProjectConfig, ProjectIssue
 # Shown after creating or loading a project, until part B encrypts the files.
 NOT_ENCRYPTED_WARNING = "WARNING: this project is not encrypted yet. Use fake passwords only."
 
+# Rows per page in show_pages.
+PAGE_SIZE = 20
+
 # Names Windows reserves for devices: a folder can't have them, whatever the case.
 WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL"} | {f"COM{n}" for n in range(1, 10)} | {
     f"LPT{n}" for n in range(1, 10)
@@ -124,6 +127,26 @@ class Menu:
             enable = "set" if host.enable_password is not None else "not set"
             accept_key = "yes" if host.accept_unknown_host_key else "no"
             print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
+
+    def show_pages(self, header: str, rows: list[str]) -> None:
+        """Print the header and rows one page of PAGE_SIZE rows at a time, like the more command.
+
+        After every page but the last, Enter shows the next page and q goes back.
+        Any other answer asks again. The header is repeated on every page."""
+        for start in range(0, len(rows), PAGE_SIZE):
+            print(header)
+            for row in rows[start : start + PAGE_SIZE]:
+                print(row)
+            shown = min(start + PAGE_SIZE, len(rows))
+            if shown == len(rows):
+                return  # last page: nothing more to ask
+            while True:
+                answer = input(f"-- More ({shown} of {len(rows)}) -- Enter for more, q to go back: ").strip().lower()
+                if answer == "":
+                    break  # out of the while: on to the next page
+                if answer == "q":
+                    return
+                print("Please press Enter or type q.", file=sys.stderr)
 
     def add_host_menu(self) -> None:
         """Ask for a new host's IP, SSH login, enable password and host key choice, and add it to the open project.

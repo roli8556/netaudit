@@ -549,3 +549,57 @@ def test_printable_keeps_printable_text(text: str) -> None:
 def test_printable_escapes_control_characters(text: str, expected: str) -> None:
     """Control characters are shown as escape codes, so the result is one line without control codes."""
     assert printable(text) == expected
+
+
+ROWS = ["row 1", "row 2", "row 3", "row 4", "row 5"]
+
+
+def test_show_pages_on_one_page_asks_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Rows that fit on one page are all printed. No fake_input: if it asked, the real input() would fail."""
+    monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
+    Menu().show_pages("HEADER", ROWS[:2])
+    assert capsys.readouterr().out == "HEADER\nrow 1\nrow 2\n"
+
+
+def test_show_pages_enter_shows_every_page(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Enter after each page shows all rows, with the header on every page and no question after the last."""
+    monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
+    fake_input(monkeypatch, ["", ""])
+    Menu().show_pages("HEADER", ROWS)
+    out = capsys.readouterr().out
+    for row in ROWS:
+        assert row in out
+    assert out.count("HEADER") == 3
+
+
+def test_show_pages_q_stops_early(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """q after the first page goes back without showing the rest."""
+    monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
+    fake_input(monkeypatch, ["Q"])
+    Menu().show_pages("HEADER", ROWS)
+    out = capsys.readouterr().out
+    assert "row 2" in out
+    assert "row 3" not in out
+
+
+def test_show_pages_bad_answer_asks_again(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Another answer shows an error and asks again on the same page."""
+    monkeypatch.setattr("netaudit.menu.PAGE_SIZE", 2)
+    fake_input(monkeypatch, ["x", "q"])
+    Menu().show_pages("HEADER", ROWS)
+    captured = capsys.readouterr()
+    assert "Please press Enter or type q." in captured.err
+    assert captured.out.count("HEADER") == 1
+    assert "row 3" not in captured.out
+
+
+def test_show_pages_without_rows_prints_nothing(capsys: pytest.CaptureFixture[str]) -> None:
+    """An empty list prints nothing, not even the header."""
+    Menu().show_pages("HEADER", [])
+    assert capsys.readouterr().out == ""
