@@ -248,3 +248,18 @@ def is_safe_folder_name(name: str) -> bool:
         if not (character.isalnum() or character in " -_"):
             return False
     return True
+
+
+def printable(text: str) -> str:
+    """Return text with every character that isn't printable shown as its escape code, like \n or \x1b.
+
+    Use it on device text and log messages before printing them: a line break could fake an extra
+    line, and an escape character (\x1b) could send control codes to the terminal."""
+    result = []
+    for character in text:
+        if character.isprintable():
+            result.append(character)
+        else:
+            # repr("\n") is the 4 characters '\n' with the quotes, [1:-1] cuts the quotes off.
+            result.append(repr(character)[1:-1])
+    return "".join(result)

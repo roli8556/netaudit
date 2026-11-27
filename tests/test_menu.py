@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from netaudit.menu import Menu, is_safe_folder_name
+from netaudit.menu import Menu, is_safe_folder_name, printable
 from netaudit.host import Host
 from netaudit.project import Project, ProjectConfig
 
@@ -529,3 +529,23 @@ def test_missing_folders_q_closes_the_project(
     assert "Please type 1, 2 or q." in captured.err
     assert "Project: office" not in captured.out
     assert menu.project is None
+
+
+@pytest.mark.parametrize("text", ["", "Added host 192.0.2.20", "Projekt 'kontor' öppnat", r"C:\Users"])
+def test_printable_keeps_printable_text(text: str) -> None:
+    """Printable text, also outside English and with backslashes, comes back unchanged."""
+    assert printable(text) == text
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("line 1\nline 2", r"line 1\nline 2"),
+        ("a\tb", r"a\tb"),
+        ("\x1b[31mred", r"\x1b[31mred"),
+        ("end\r", r"end\r"),
+    ],
+)
+def test_printable_escapes_control_characters(text: str, expected: str) -> None:
+    """Control characters are shown as escape codes, so the result is one line without control codes."""
+    assert printable(text) == expected

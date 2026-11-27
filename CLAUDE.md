@@ -83,9 +83,10 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 328 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: add host also asks for the enable password (Enter = none, stored as None).
-- Next step: menu step 7, show log.
+  Expected: 336 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: show log 1/3, `printable` (escapes control characters in text before it is shown).
+- Next step: show log 2/3, `show_pages` (pages of LOG_PAGE_SIZE rows, Enter for more, q to go back),
+  then 3/3, `show_log` and option 4 in the project menu.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -118,7 +119,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
 - `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show, add and remove hosts, and close),
-  and `is_safe_folder_name`.
+  `is_safe_folder_name` and `printable`.
 - `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
   load, add and remove hosts).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
