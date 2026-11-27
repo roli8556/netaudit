@@ -78,15 +78,32 @@ class LogEntry:
 class LogFilter:
     """What to look for in the log, chosen in the log menu. None means any.
 
-    The menu passes the fields to ProjectLog.find. The order isn't here: it doesn't remove entries."""
+    The fields are the same as ProjectLog.find's, and the menu passes them to it.
+    The order isn't here: it doesn't remove entries."""
 
     level: LogLevel | None = None
+    category: LogCategory | None = None
+    text: str | None = None
+    since: datetime | None = None
+    from_number: int | None = None
+    to_number: int | None = None
 
     def describe(self) -> str:
-        """Return the filters that are set, like "level: WARNING", or "" when none are set."""
+        """Return the filters that are set, like "level: WARNING, text: '192'", or "" when none are set."""
         parts = []
         if self.level is not None:
             parts.append(f"level: {self.level.value}")
+        if self.category is not None:
+            parts.append(f"category: {self.category.value}")
+        if self.text is not None:
+            parts.append(f"text: {self.text!r}")  # quotes show spaces, repr escapes control characters
+        if self.since is not None:
+            parts.append(f"since: {self.since.strftime('%Y-%m-%d %H:%M')}")
+        if self.from_number is not None or self.to_number is not None:
+            # A missing end shows as nothing: "10-" is from 10, "-50" is up to 50.
+            start = str(self.from_number) if self.from_number is not None else ""
+            end = str(self.to_number) if self.to_number is not None else ""
+            parts.append(f"numbers: {start}-{end}")
         return ", ".join(parts)
 
 

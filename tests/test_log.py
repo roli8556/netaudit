@@ -328,10 +328,32 @@ def test_sort_does_not_change_the_given_list(unsorted: list[LogEntry]) -> None:
 def test_new_filter_has_nothing_set() -> None:
     """A new LogFilter filters nothing, so describe returns an empty string."""
     filters = LogFilter()
-    assert filters.level is None
+    assert filters == LogFilter(None, None, None, None, None, None)
     assert filters.describe() == ""
 
 
-def test_filter_describes_the_level() -> None:
-    """A level that is set shows by its value."""
-    assert LogFilter(level=LogLevel.WARNING).describe() == "level: WARNING"
+@pytest.mark.parametrize(
+    "filters, expected",
+    [
+        (LogFilter(level=LogLevel.WARNING), "level: WARNING"),
+        (LogFilter(category=LogCategory.HOST), "category: HOST"),
+        (LogFilter(text="192.0.2"), "text: '192.0.2'"),
+        (LogFilter(text="admin "), "text: 'admin '"),  # the quotes show the space
+        (LogFilter(text="a\nb"), r"text: 'a\nb'"),  # a line break can't break the title
+        (LogFilter(since=datetime(2026, 11, 27, 14, 5, 59)), "since: 2026-11-27 14:05"),
+        (LogFilter(from_number=10, to_number=50), "numbers: 10-50"),
+        (LogFilter(from_number=10), "numbers: 10-"),
+        (LogFilter(to_number=50), "numbers: -50"),
+    ],
+)
+def test_filter_describes_one_field(filters: LogFilter, expected: str) -> None:
+    """Each field that is set is described on its own."""
+    assert filters.describe() == expected
+
+
+def test_filter_describes_all_fields_in_order() -> None:
+    """With every field set, the parts come in field order, separated by commas."""
+    filters = LogFilter(
+        LogLevel.ERROR, LogCategory.SCAN, "ssh", datetime(2026, 11, 27, 9, 0), from_number=1, to_number=9
+    )
+    assert filters.describe() == "level: ERROR, category: SCAN, text: 'ssh', since: 2026-11-27 09:00, numbers: 1-9"
