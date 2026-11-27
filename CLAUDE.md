@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 364 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log filters, `4. Message` (text search, Enter for any).
-- Next step: log filters, `5. Number range` and `6. Since` with input checks (written by me, checks and tests by Claude).
+  Expected: 379 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log filters, `5. Number range` (a bad number or from > to changes nothing).
+- Next step: log filters, `6. Since` (Enter for any, shown without the T).
   Then 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
   The filters are a local `LogFilter` in `show_log_menu`, so they reset each time it opens (decided by me).
   When a filter is set, `find` runs at the top of the loop for the match count, and Show uses that list.

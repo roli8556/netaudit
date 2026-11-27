@@ -676,7 +676,7 @@ def test_show_log_menu_refuses_other_choices(
     menu = Menu()
     menu.project = saved
     menu.show_log_menu()
-    assert "Please type 1, 2, 3, 4 or q." in capsys.readouterr().err
+    assert "Please type 1, 2, 3, 4, 5 or q." in capsys.readouterr().err
 
 
 def test_show_log_menu_filters_by_message(
@@ -704,6 +704,72 @@ def test_show_log_menu_enter_clears_the_message(
     out = capsys.readouterr().out
     assert "4. Message (added)" in out
     assert out.count("4. Message (any)") == 2  # at the start and after Enter
+
+
+def test_show_log_menu_filters_by_number_range(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """A range of 1 to 1 shows only the first entry, and the menu shows the range."""
+    fake_input(monkeypatch, ["5", "1", "1", "1", "q"])  # Range, from, to, Show, Back
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    assert "5. Number Range (1 to 1)" in out
+    assert "Project created" in out
+    assert "Added host 192.0.2.11" not in out
+
+
+@pytest.mark.parametrize("answers, shown", [(["2", ""], "2 to any"), (["", "2"], "any to 2")])
+def test_show_log_menu_number_range_with_one_end(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project, answers: list[str], shown: str
+) -> None:
+    """Enter at one end leaves that end open."""
+    fake_input(monkeypatch, ["5", *answers, "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    assert f"5. Number Range ({shown})" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("bad", ["abc", "-5", "²", "5x", "1 2"])
+@pytest.mark.parametrize("which", ["from", "to"])
+def test_show_log_menu_number_range_refuses_a_bad_number(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project, bad: str, which: str
+) -> None:
+    """Text that isn't a whole number shows an error, and the range set before stays."""
+    answers = [bad, "3"] if which == "from" else ["1", bad]
+    fake_input(monkeypatch, ["5", "1", "2", "5", *answers, "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    captured = capsys.readouterr()
+    assert f"Error: {bad!r} is not a whole number. Nothing changed." in captured.err
+    assert captured.out.count("5. Number Range (1 to 2)") == 2  # after setting it and after the error
+
+
+def test_show_log_menu_number_range_refuses_from_bigger_than_to(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """From bigger than to could never match, so it is refused and nothing changes."""
+    fake_input(monkeypatch, ["5", "50", "10", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    captured = capsys.readouterr()
+    assert "Error: from (50) is bigger than to (10). Nothing changed." in captured.err
+    assert captured.out.count("5. Number Range (any to any)") == 2
+
+
+def test_show_log_menu_enter_clears_the_number_range(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Enter at both questions sets the range back to any."""
+    fake_input(monkeypatch, ["5", "1", "2", "5", "", "", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    assert capsys.readouterr().out.count("5. Number Range (any to any)") == 2  # at the start and after Enter
 
 
 def test_show_log_menu_filters_by_level(

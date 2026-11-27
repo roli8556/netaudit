@@ -157,6 +157,7 @@ class Menu:
             print(f"  2. Level ({level})")
             print(f"  3. Category ({filters.category.value if filters.category is not None else 'any'})")
             print(f"  4. Message ({filters.text if filters.text is not None else 'any'})")
+            print(f"  5. Number Range ({filters.from_number if filters.from_number is not None else 'any'} to {filters.to_number if filters.to_number is not None else 'any'})")
             print("  q. Back")
             choice = self.ask("Choose: ")
             if choice == "1":
@@ -170,10 +171,23 @@ class Menu:
                 filters.category = self.choose_from_enum("Category", LogCategory)   
             elif choice == "4":
                 filters.text = input("Message: ").strip() or None
+            elif choice == "5":
+                # Both are asked before checking, and nothing changes unless both are fine.
+                from_number = input("From number (Enter for any): ").strip()
+                to_number = input("To number (Enter for any): ").strip()
+                if from_number and not (from_number.isascii() and from_number.isdigit()):
+                    print(f"Error: {from_number!r} is not a whole number. Nothing changed.", file=sys.stderr)
+                elif to_number and not (to_number.isascii() and to_number.isdigit()):
+                    print(f"Error: {to_number!r} is not a whole number. Nothing changed.", file=sys.stderr)
+                elif from_number and to_number and int(from_number) > int(to_number):
+                    print(f"Error: from ({from_number}) is bigger than to ({to_number}). Nothing changed.", file=sys.stderr)
+                else:
+                    filters.from_number = int(from_number) if from_number else None
+                    filters.to_number = int(to_number) if to_number else None
             elif choice.lower() == "q":
                 return
             else:
-                print("Please type 1, 2, 3, 4 or q.", file=sys.stderr)
+                print("Please type 1, 2, 3, 4, 5 or q.", file=sys.stderr)
 
     def choose_from_enum(self, title: str, enum_class: type[Enum]) -> Enum | None:
         """Print the members of enum_class numbered from 1 and return the one chosen.
