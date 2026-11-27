@@ -90,6 +90,7 @@ class Menu:
             print("  1. Show hosts")
             print("  2. Add host")
             print("  3. Remove host")
+            print("  4. Show log")
             print("  q. Close project")
             choice = self.ask("Choose: ")
             # Caught here, not in run, so an error keeps the user in the project menu with the project open
@@ -100,10 +101,12 @@ class Menu:
                     self.add_host_menu()
                 elif choice == "3":
                     self.remove_host_menu()
+                elif choice == "4":
+                    self.show_log()
                 elif choice.lower() == "q":
                     self.project = None
                 else:
-                    print("Please type 1, 2, 3 or q.", file=sys.stderr)
+                    print("Please type 1, 2, 3, 4 or q.", file=sys.stderr)
             except (ValueError, OSError) as error:
                 print(f"Error: {error}", file=sys.stderr)
 
@@ -127,6 +130,26 @@ class Menu:
             enable = "set" if host.enable_password is not None else "not set"
             accept_key = "yes" if host.accept_unknown_host_key else "no"
             print(f"{number:<4}{host.ip:<17}{host.ssh_username:<17}{hostname:<17}{level:<11}{enable:<17}{accept_key}")
+
+    def show_log(self) -> None:
+        """Print the open project's log, oldest first (file order), a page at a time with print_as_pages.
+
+        Entries without a number (warnings about damaged lines, never in the file) show - as number.
+        Messages go through make_printable, since they can contain device text. Only reads memory."""
+        print()
+        entries = self.project.log.entries
+        if not entries:
+            print("The log is empty.")
+            return
+        header = f"{'#':<6}{'Time':<21}{'Level':<10}{'Category':<10}Message"
+        rows = []
+        for entry in entries:
+            number = str(entry.number) if entry.number is not None else "-"
+            time = entry.time.strftime("%Y-%m-%d %H:%M:%S")  # to the second, the file keeps the full time
+            level = entry.level.value
+            category = entry.category.value
+            rows.append(f"{number:<6}{time:<21}{level:<10}{category:<10}{make_printable(entry.message)}")
+        self.print_as_pages(header, rows)
 
     def print_as_pages(self, header: str, rows: list[str]) -> None:
         """Print the header and rows one page of PAGE_SIZE rows at a time, like the more command.

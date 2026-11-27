@@ -6,6 +6,7 @@ import pytest
 
 from netaudit.menu import Menu, is_safe_folder_name, make_printable
 from netaudit.host import Host
+from netaudit.log import LogCategory, LogEntry, LogLevel
 from netaudit.project import Project, ProjectConfig
 
 
@@ -187,9 +188,9 @@ def test_project_menu_refuses_other_choices(
     """Only the listed choices work in the project menu."""
     menu = Menu()
     menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
-    fake_input(monkeypatch, ["4", "q"])
+    fake_input(monkeypatch, ["5", "q"])
     menu.project_menu()
-    assert "Please type 1, 2, 3 or q." in capsys.readouterr().err
+    assert "Please type 1, 2, 3, 4 or q." in capsys.readouterr().err
     assert menu.project is None
 
 
@@ -603,3 +604,58 @@ def test_print_as_pages_without_rows_prints_nothing(capsys: pytest.CaptureFixtur
     """An empty list prints nothing, not even the header."""
     Menu().print_as_pages("HEADER", [])
     assert capsys.readouterr().out == ""
+
+
+def test_show_log_when_empty(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    """A project with nothing logged says so. Project() itself doesn't touch the disk or log anything."""
+    menu = Menu()
+    menu.project = Project(tmp_path / "office", ProjectConfig("office"))
+    menu.show_log()
+    assert "The log is empty." in capsys.readouterr().out
+
+
+def test_show_log_in_file_order(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
+    """The entries are shown oldest first, with their number, level and category."""
+    menu = Menu()
+    menu.project = saved
+    menu.show_log()
+    out = capsys.readouterr().out
+    created = out.index("Project created")
+    added = out.index("Added host 192.0.2.11")
+    assert created < added
+    assert "INFO      HOST      Added host 192.0.2.11" in out
+
+
+def test_show_log_entry_without_number(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
+    """An entry that isn't in the file (a warning about a damaged line) shows - as its number."""
+    saved.log.entries.append(LogEntry("Skipped damaged line 3", LogCategory.MISC, LogLevel.WARNING))
+    menu = Menu()
+    menu.project = saved
+    menu.show_log()
+    rows = capsys.readouterr().out.splitlines()
+    assert rows[-1].startswith("-     ")
+    assert rows[-1].endswith("WARNING   MISC      Skipped damaged line 3")
+
+
+def test_show_log_keeps_a_message_on_one_row(capsys: pytest.CaptureFixture[str], saved: Project) -> None:
+    """A line break in a message is shown as \\n, so it can't fake an extra row."""
+    saved.log.entries.append(LogEntry("fake\n7     2026-01-01 00:00:00  INFO      CHECK     All passed", LogCategory.HOST))
+    menu = Menu()
+    menu.project = saved
+    menu.show_log()
+    rows = capsys.readouterr().out.splitlines()
+    assert rows[-1].endswith(r"fake\n7     2026-01-01 00:00:00  INFO      CHECK     All passed")
+    assert not any(row.startswith("7     ") for row in rows)
+
+
+def test_show_log_from_project_menu(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Choice 4 shows the log, then the project menu comes back."""
+    fake_input(monkeypatch, ["4", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.project_menu()
+    out = capsys.readouterr().out
+    assert "Project created" in out
+    assert out.count("Project: office") == 2
