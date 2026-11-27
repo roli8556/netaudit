@@ -663,7 +663,7 @@ def test_show_log_menu_counts_the_entries(
     menu.project = saved
     menu.show_log_menu()
     out = capsys.readouterr().out
-    assert f"Log ({len(saved.log.entries)} entries)\n" in out
+    assert f"Log ({len(saved.log.entries)} total entries)\n" in out
     assert "2. Level (any)" in out
     assert "Project created" not in out
 
@@ -689,7 +689,7 @@ def test_show_log_menu_filters_by_level(
     menu.project = saved
     menu.show_log_menu()
     out = capsys.readouterr().out
-    assert "- level: WARNING" in out
+    assert f"Log ({len(saved.log.entries)} total entries) -> 1 match" in out
     assert "2. Level (WARNING)" in out
     assert "Host 192.0.2.11 didn't answer" in out
     assert "Added host 192.0.2.11" not in out

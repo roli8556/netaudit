@@ -139,10 +139,18 @@ class Menu:
         The filters start empty every time the menu opens, and Show only shows the entries that match them."""
         filters = LogFilter()
         while True:
-            title = f"Log ({len(self.project.log.entries)} entries)"
+            title = f"Log ({len(self.project.log.entries)} total entries)"
             active_filters = filters.get_filters()
             if active_filters:
-                title += f" - {active_filters}"
+                filtered_entries = self.project.log.find(
+                    level=filters.level,
+                    category=filters.category,
+                    text=filters.text,
+                    since=filters.since,
+                    from_number=filters.from_number,
+                    to_number=filters.to_number,
+                )
+                title += f" -> {len(filtered_entries)} match"
             level = filters.level.value if filters.level is not None else "any"
             print()
             print(title)
@@ -151,15 +159,10 @@ class Menu:
             print("  q. Back")
             choice = self.ask("Choose: ")
             if choice == "1":
-                entries = self.project.log.find(
-                    level=filters.level,
-                    category=filters.category,
-                    text=filters.text,
-                    since=filters.since,
-                    from_number=filters.from_number,
-                    to_number=filters.to_number,
-                )
-                self.show_log(entries)
+                if active_filters:
+                    self.show_log(filtered_entries)
+                else:
+                    self.show_log(self.project.log.entries)
             elif choice == "2":
                 filters.level = self.choose_from_enum("Level", LogLevel)
             elif choice.lower() == "q":
