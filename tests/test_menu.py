@@ -676,7 +676,7 @@ def test_show_log_menu_refuses_other_choices(
     menu = Menu()
     menu.project = saved
     menu.show_log_menu()
-    assert "Please type 1, 2, 3, 4, 5 or q." in capsys.readouterr().err
+    assert "Please type 1, 2, 3, 4, 5, 6 or q." in capsys.readouterr().err
 
 
 def test_show_log_menu_filters_by_message(
@@ -770,6 +770,45 @@ def test_show_log_menu_enter_clears_the_number_range(
     menu.project = saved
     menu.show_log_menu()
     assert capsys.readouterr().out.count("5. Number Range (any to any)") == 2  # at the start and after Enter
+
+
+@pytest.mark.parametrize("since, matches", [("2000-01-01 00:00:00", "all"), ("2099-01-01 00:00:00", "none")])
+def test_show_log_menu_filters_by_since(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project, since: str, matches: str
+) -> None:
+    """A time in the past matches every entry, one in the future none. The menu shows it as typed, without a T."""
+    fake_input(monkeypatch, ["6", since, "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    out = capsys.readouterr().out
+    expected = len(saved.log.entries) if matches == "all" else 0
+    assert f"-> {expected} match" in out
+    assert f"6. Since Date/Time ({since})" in out
+
+
+def test_show_log_menu_since_refuses_a_bad_date(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """A date in another format shows an error, and the time set before stays."""
+    fake_input(monkeypatch, ["6", "2000-01-01 00:00:00", "6", "2000-01-01T00:00:00", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    captured = capsys.readouterr()
+    assert "Invalid date format. Please use YYYY-MM-DD HH:MM:SS." in captured.err
+    assert captured.out.count("6. Since Date/Time (2000-01-01 00:00:00)") == 2  # after setting it and after the error
+
+
+def test_show_log_menu_enter_clears_since(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """Enter at the since question sets it back to any."""
+    fake_input(monkeypatch, ["6", "2000-01-01 00:00:00", "6", "", "q"])
+    menu = Menu()
+    menu.project = saved
+    menu.show_log_menu()
+    assert capsys.readouterr().out.count("6. Since Date/Time (any)") == 2  # at the start and after Enter
 
 
 def test_show_log_menu_filters_by_level(

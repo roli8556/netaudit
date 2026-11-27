@@ -1,5 +1,6 @@
 """The text menu: the only part of netaudit that talks to the user."""
 
+from datetime import datetime
 import sys
 from enum import Enum
 from getpass import getpass
@@ -158,6 +159,7 @@ class Menu:
             print(f"  3. Category ({filters.category.value if filters.category is not None else 'any'})")
             print(f"  4. Message ({filters.text if filters.text is not None else 'any'})")
             print(f"  5. Number Range ({filters.from_number if filters.from_number is not None else 'any'} to {filters.to_number if filters.to_number is not None else 'any'})")
+            print(f"  6. Since Date/Time ({filters.since.strftime('%Y-%m-%d %H:%M:%S') if filters.since is not None else 'any'})")
             print("  q. Back")
             choice = self.ask("Choose: ")
             if choice == "1":
@@ -184,10 +186,19 @@ class Menu:
                 else:
                     filters.from_number = int(from_number) if from_number else None
                     filters.to_number = int(to_number) if to_number else None
+            elif choice == "6":
+                since_date = input("Since (YYYY-MM-DD HH:MM:SS, Enter for any): ").strip()
+                if not since_date:
+                    filters.since = None
+                else:
+                    try:
+                        filters.since = datetime.strptime(since_date, "%Y-%m-%d %H:%M:%S")
+                    except ValueError:  # caught here, so a typo keeps the other filters and the log menu
+                        print("Invalid date format. Please use YYYY-MM-DD HH:MM:SS.", file=sys.stderr)
             elif choice.lower() == "q":
                 return
             else:
-                print("Please type 1, 2, 3, 4, 5 or q.", file=sys.stderr)
+                print("Please type 1, 2, 3, 4, 5, 6 or q.", file=sys.stderr)
 
     def choose_from_enum(self, title: str, enum_class: type[Enum]) -> Enum | None:
         """Print the members of enum_class numbered from 1 and return the one chosen.
