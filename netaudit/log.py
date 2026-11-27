@@ -75,6 +75,22 @@ class LogEntry:
 
 
 @dataclass
+class LogFilter:
+    """What to look for in the log, chosen in the log menu. None means any.
+
+    The menu passes the fields to ProjectLog.find. The order isn't here: it doesn't remove entries."""
+
+    level: LogLevel | None = None
+
+    def describe(self) -> str:
+        """Return the filters that are set, like "level: WARNING", or "" when none are set."""
+        parts = []
+        if self.level is not None:
+            parts.append(f"level: {self.level.value}")
+        return ", ".join(parts)
+
+
+@dataclass
 class ProjectLog:
     """Main Log handler,All entries of a project's log, kept in memory and in the log file.
 

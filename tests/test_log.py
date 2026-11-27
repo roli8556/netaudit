@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from netaudit.log import LogCategory, LogEntry, LogLevel, LogOrder, ProjectLog
+from netaudit.log import LogCategory, LogEntry, LogFilter, LogLevel, LogOrder, ProjectLog
 
 
 def test_entry_defaults_to_info_and_now() -> None:
@@ -323,3 +323,15 @@ def test_sort_does_not_change_the_given_list(unsorted: list[LogEntry]) -> None:
     before = list(unsorted)
     ProjectLog.sort_entries(unsorted)
     assert unsorted == before
+
+
+def test_new_filter_has_nothing_set() -> None:
+    """A new LogFilter filters nothing, so describe returns an empty string."""
+    filters = LogFilter()
+    assert filters.level is None
+    assert filters.describe() == ""
+
+
+def test_filter_describes_the_level() -> None:
+    """A level that is set shows by its value."""
+    assert LogFilter(level=LogLevel.WARNING).describe() == "level: WARNING"

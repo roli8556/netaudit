@@ -83,11 +83,12 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 348 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log filters 1/6, `show_log_menu` (1. Show, q. Back) and `show_log(entries)`.
-- Next step: log filters 2/6, level filter with `choose_from_enum(title, enum_class)`.
+  Expected: 350 passed, 1 xfailed (the plain-text password test, until part B).
+- Last finished step: log filters 2a, `LogFilter` in log.py (only `level` so far, and `describe()`).
+- Next step: log filters 2b, `choose_from_enum(title, enum_class)` and the level choice in `show_log_menu`.
   Then 3 category, 4 search text, 5 order (newest first), 6 clear filters. Not planned yet: since, number range.
-  The filters are local variables in `show_log_menu`, so they reset each time it opens.
+  The filters are a local `LogFilter` in `show_log_menu`, so they reset each time it opens (decided by me).
+  `newest_first` is a separate local variable: order isn't a filter, so clear filters keeps it.
 
 ### Temporary exception to the security requirements (decided by me)
 - Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
@@ -125,7 +126,7 @@ Order: A, C, D (structure), then B (encryption), then E.
   load, add and remove hosts).
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
-- `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event) and ProjectLog (all entries, in memory and file,
+- `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event), LogFilter (what the log menu looks for) and ProjectLog (all entries, in memory and file,
   `find` to filter them, `sort_entries` to sort any list of them).
 
 ### A project on disk (can be anywhere)
