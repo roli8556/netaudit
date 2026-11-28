@@ -15,6 +15,9 @@ It is a learning project with two goals:
 - netaudit must be deployable to any Cisco network, so nothing in it is specific to one network.
 - The user creates and loads projects. Each network is one project, stored on disk.
 - Projects are password protected and encrypted on disk.
+- netaudit is menu driven: on start, the user creates or loads a project.
+- Creating requires a name, a location and a new password. Loading requires a path and the password.
+- Recently used project paths are remembered in plain text (paths only, never passwords).
 - My own lab is just another project. Nothing specific to it is committed to this public repo.
 
 ## How we work (follow this strictly)
@@ -75,4 +78,182 @@ tested and committed before the next.
 10. SNMP / traffic analysis.
 
 ## Current status
-Milestone 0 is done. Milestone 1 is next.
+Update this section in the commit of every step.
+
+### Start here next session
+- Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
+- Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
+  Expected: 458 passed.
+  On a new machine, `pip install -r requirements.txt` first.
+- Last finished step: B4 to B9 in one step (started by me, finished together): Project holds `enc_handler` and
+  encrypts config, hosts, scans and every log line. The menu asks for the project password.
+- Then B10: the encrypted files are named `.enc`, and .gitignore covers them and `project.salt`. Part B is done.
+- Part E (recent projects) is skipped for now (decided by me, 2026-11-28).
+- Milestone 1 is done (A, B, C, D; E skipped). I merge `feature/project-model` into `main` myself.
+- Next step: Milestone 2 on a new branch (e.g. `feature/ssh-connect`): plan it first.
+- Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
+  Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
+- Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
+  The filters are a local `LogFilter` in `show_log_menu`, so they reset each time it opens (decided by me).
+  When a filter is set, `find` runs at the top of the loop for the match count, and Show uses that list.
+  With no filter, Show uses the whole log. `if filters:` uses `LogFilter.__bool__` (True if any field isn't None).
+  `newest_first` is a separate local variable: order isn't a filter, so clear filters keeps it.
+
+### Git and project files
+- Ignored by Git: `*.enc` and `*.enc.tmp` (config, hosts, scans), `project.salt` and its `.tmp`, `configs/`, `*.log`.
+  The old plain names (`config.json`, `hosts.json`, `*.scan.json`) stay ignored: files from before part B may hold real passwords.
+
+### Done
+- Milestone 0: project skeleton (venv, .gitignore, main.py, pytest, tests folder).
+
+### In progress: Milestone 1, encrypted projects
+Goal: start netaudit, create or load an encrypted project from a menu, add and show hosts.
+Order: A, C, D (structure), then B (encryption), then E.
+- [x] A. Project model
+  - [x] Project, ProjectConfig, Host, Scan base class
+  - [x] Validation
+  - [x] Log
+- [x] C. Project files
+  - [x] Create without overwriting, save and load config and hosts, write and load scans
+  - [x] Check paths, clear errors for damaged files
+- [x] D. Menu (`netaudit/menu.py`): create, load, show, add and remove hosts, show log
+  - [x] Start menu, create project, load project (with the missing-folders question)
+  - [x] Show hosts
+  - [x] Add host
+  - [x] Remove host
+  - [x] Show log (with filters: level, category, message, number range, since)
+- [x] B. Encryption (`netaudit/enc_handler.py`): key from the password, encrypt and decrypt
+  - [x] B1. `cryptography` in the venv and requirements.txt
+  - [x] B2. EncHandler: `__init__` (checks, key from the password), `create` (new salt), `derive_key`
+  - [x] B3. `encrypt(data)` and `decrypt(token)`
+  - [x] B4. `project.salt`: `create(path, password)` writes it, `load(path, password)` reads it (JSON, salt as base64)
+  - [x] B5. `Project.create(path, config, password)` and `load(path, password)`, config.enc encrypted
+  - [x] B6. hosts.enc encrypted
+  - [x] B7. Scans encrypted
+  - [x] B8. The log: one encrypted token per line
+  - [x] B9. Menu: password twice on create (at least 12 characters), once on load, no more "not encrypted" warning.
+    The xfail marker is removed: the plain-text password test passes.
+  - [x] B10. Encrypted files are named `.enc`, .gitignore covers them and `project.salt`
+- [ ] E. Recent projects: remember paths, pick one when loading. Skipped for now (decided by me), maybe later.
+
+### The code today
+- `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
+- `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show, add and remove hosts, show log, and close),
+  `is_safe_folder_name` and `make_printable`.
+- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, enc_handler, hosts, scans, log, issues;
+  create, load, add and remove hosts). SALT_FILE is the salt file's name.
+- `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
+- `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
+- `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event), LogFilter (what the log menu looks for) and ProjectLog (all entries, in memory and file,
+  `find` to filter them, `sort_entries` to sort any list of them).
+- `netaudit/enc_handler.py`: EncHandler, one project's encryption. Makes the key from the password with Argon2id
+  and keeps a Fernet object, the salt and the settings, never the password. `create` and `load` read and write
+  `project.salt`, `encrypt` and `decrypt` turn bytes into a token and back.
+- `tests/conftest.py`: fixtures shared by test files: `enc_handler` (fast, fixed salt) and `fast_argon2`
+  (makes new projects use tiny Argon2 settings), and PROJECT_PASSWORD.
+
+### A project on disk (can be anywhere)
+- `project.salt`: the salt and Argon2 settings, plain JSON (needed to make the key, not secret). Lost = project lost.
+- `config.enc`: the project's own settings, encrypted.
+- `hosts.enc`: the hosts, encrypted.
+- `configs/`: running configs of the devices. Not the project's settings.
+- `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.enc`, encrypted, never overwritten.
+- `logs/project.log`: the log, one token per line, each an encrypted JSON object (ignored by Git through `*.log`).
+- Later more, for example topology.
+
+### Decided
+- All project files are encrypted, except `project.salt`. JSON inside the encryption.
+- Only Project holds the EncHandler (decided by me). ProjectConfig, ProjectLog and Scan get it as an argument
+  of the method that reads or writes, and never keep it.
+- A wrong password is found on config.enc, the first file decrypted: "Wrong password, or the file is damaged",
+  outside the try, so it isn't called damage. Hosts and scans decrypt inside the try: the password is already
+  proven right then, so a failure there is "<file> is damaged". A log line that can't be decrypted is a damaged line.
+- A wrong password writes nothing to the log: with the wrong key the entry couldn't be read back.
+- The log is one token per line, not one token for the whole file (decided by me): writing stays append-only, a crash
+  or a damaged byte costs one entry, not the history. About 22 microseconds per line, but twice the size on disk.
+- Key from the password: Argon2id. Encryption: Fernet. One salt per project.
+- Argon2id settings: RFC 9106's low-memory choice (3 passes, 64 MiB, 4 lanes). Tests use tiny settings to stay fast.
+  `project.salt` stores the settings next to the salt (decided by me), so raising them later doesn't lock out old projects.
+- Plain-JSON projects from before part B are not converted (decided by me): create a new project instead.
+- Passwords: at least 12 characters, no recovery. Keep the key in memory, never the project password.
+- Only the menu uses input() and print(). Project never asks the user anything.
+- Menu is a class (decided by me): `self.project` is the open project, one method per menu and action.
+  Each menu prints its own options, reads the choice with `ask`, and calls a method per choice
+  (e.g. `create_project_menu`). `q` (or `Q`) exits or goes back. `ask` handles all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
+  `project_menu` catches them too, so an error there keeps the project open (put the except where the program
+  should carry on). Passwords with getpass. Port and timeout are asked with the default shown.
+  Create asks the project password twice (MIN_PASSWORD_LENGTH 12) before anything is created. Device text is made printable before it is shown.
+- A new project's folder is location/name, so the menu only accepts names that are safe folder names
+  (`is_safe_folder_name`: letters, digits, spaces, - and _, no reserved Windows names). The location must exist.
+  A bad answer while creating goes back to the start menu with an error; nothing is created.
+- `hostname` and `privilege_level` are read from the device after login, not typed in. None = not read yet.
+  `privilege_level` is the SSH user's level at login (0-15, checked when set). It is not a write protection.
+- Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
+- `__post_init__` only runs when a Host is created, not when a field is assigned later. The parser must check
+  values before assigning them, with the same functions (like `is_valid_hostname`) so each rule exists once.
+- `add_host` and `remove_host` save hosts.enc right away. If saving fails, the change is undone in memory.
+  No two hosts share an IP, also checked when loading hosts.enc.
+- ProjectConfig: name 1-64 printable characters (any language), port 1-65535, timeout 1-300 seconds.
+- Usernames and passwords can't contain control characters: a line break in a password typed into the CLI
+  could send a second command. Error messages never show a password.
+- `available_commands` is a list, None = not checked (test with `is None`). It is information only: the commands
+  netaudit sends come from a fixed list in the code, never from a project file.
+- SSH uses host keys, not certificates. `Host.accept_unknown_host_key` (default False, decided by me): when SSH
+  (Milestone 2) meets a key it has never stored for that host, True answers yes by itself, False asks the user.
+  A key that changed since it was stored is always refused, whatever the setting (could be a MITM).
+- SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
+- A scan stores host IPs, never Host objects (they contain passwords).
+- `Project.create(path, config, password)` and `Project.load(path, password)` are classmethods that return a complete Project.
+  The constructor stays plain (no disk access). `load_hosts` and `load_scans` refresh parts of an existing project.
+- The log is our own class, not the `logging` module (each line encrypted, reading it back in the menu).
+  An entry has a category (PROJECT, HOST, SCAN, CHECK, MISC) and a level (INFO, WARNING, ERROR, SECURITY).
+  SCAN = collecting data from devices, CHECK = checking it for problems.
+- Findings are not log entries: they are stored with the scan. The log only gets a summary line per scan.
+  Finding severity will be its own enum on the Finding class (Milestone 5).
+- ProjectLog keeps all entries in memory. `write(entry, enc_handler)` writes to the file first, then to the list.
+  Create a LogEntry right before writing it, so its time is when it happened.
+  `write` gives each entry its number: `_last_number` + 1 (not len + 1). `load` sets `_last_number` to the
+  highest number in the file (max, so moved lines can't cause a repeat), `write` updates it after writing. None = not in the file, as for
+  the in-memory warnings about damaged lines. A failed write leaves the entry without a number.
+  A damaged line is skipped on load, with a warning in memory only (loading never changes the file).
+  `write` adds a line break first if the file ends with a half-written line.
+- `log.entries` always stays in file order. `find` and `sort_entries` return new lists and never write.
+- Only one netaudit per open project: two would each have their own entries and hosts in memory.
+- PROJECT_FOLDERS lists the project folders. Load creates a missing `logs/` itself and logs a warning for
+  every missing folder. The others are only created when the user chooses to (asked by the menu).
+- `project.issues`: dict from ProjectIssue (a fixed Enum) to details, for problems found by load that the menu
+  must handle. The log is the history, `issues` the current state. Each fix removes its issue.
+  Added early on purpose (decided by me), with one kind so far. Damaged scans may become the next kind.
+- Every kind of damage in config.enc, hosts.enc or a scan file is a ValueError "<file> is damaged: ...",
+  so the menu only has to catch ValueError and OSError. A missing config.enc stays FileNotFoundError.
+- Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
+- Host checks its data in `__post_init__`, so a bad Host can't exist, from the menu or from hosts.enc.
+  IPv4 only for now (decided by me). Type checks come before value checks.
+- `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
+
+### Not decided yet
+- Whether one damaged scan should stop the whole project from loading, as it does now.
+- Whether device names may show in file names under `configs/` once files are encrypted (Milestone 3).
+- Deleting projects: in the project.py docstring, not planned yet.
+
+### Known gaps (all reproduced)
+- An interrupted `Scan.write` leaves a broken file, and then the project won't load.
+- A failed `Project.create` leaves the folder behind, so trying again raises FileExistsError.
+- `Project.create` doesn't save hosts, only the config. Call `save_hosts` after.
+- `Scan.write` can't save datetime or Path fields of subclasses, and tuples load back as lists.
+
+### Notes on encryption
+- Gaps in log numbers mean deleted lines. A later check could report them as a SECURITY warning.
+- Files are not bound to their path (decided by me): a token copied over another file of the project decrypts fine.
+  Swapping config.enc and hosts.enc just fails as damaged, but two swapped scan files would not be noticed.
+- An older copy of a file put back in its place isn't noticed either.
+
+### Notes for Milestone 2
+- Privilege level: `show privilege` prints "Current privilege level is N". It is refused at level 0, so treat a
+  refusal as level 0 or restricted. The prompt hints too: `>` = 0-1, `#` = 2-15.
+- Hostname: device output is untrusted. Check it against Cisco's rules (starts with a letter, letters, digits and
+  `-`, at most 63 characters) before storing it, and again before using it in file names (Milestone 3).
+- Fill `available_commands` by reading `show ?`. Never test a command by running it if it could change something.
+- With AAA command authorization a listed command can still be refused, so handle refusals when running it.
+- Below privilege 15 `show running-config` can be incomplete. Never report "passed" from incomplete data.
+- How `?` behaves inside CLI views is unverified: test it in a lab.

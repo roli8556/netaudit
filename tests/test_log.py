@@ -1,0 +1,369 @@
+"""Tests for netaudit/log.py."""
+
+import json
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+from netaudit.enc_handler import EncHandler
+from netaudit.log import LogCategory, LogEntry, LogFilter, LogLevel, LogOrder, ProjectLog
+
+
+def test_entry_defaults_to_info_and_now() -> None:
+    """Level and time don't have to be given."""
+    before = datetime.now()
+    entry = LogEntry("Project created", LogCategory.PROJECT)
+    assert entry.level == LogLevel.INFO
+    assert before <= entry.time <= datetime.now()
+
+
+def test_entry_survives_a_round_trip() -> None:
+    """An entry turned into a line and back is the same entry."""
+    entry = LogEntry("Login failed", LogCategory.HOST, LogLevel.SECURITY, datetime(2026, 1, 2, 3, 4, 5), 7)
+    assert LogEntry.from_line(entry.to_line()) == entry
+
+
+def test_line_break_in_message_stays_on_one_line() -> None:
+    """A message can't fake an extra entry in the log file."""
+    message = 'SW1\n{"level": "INFO", "message": "fake"}'
+    line = LogEntry(message, LogCategory.SCAN, number=1).to_line()
+    assert "\n" not in line
+    assert LogEntry.from_line(line).message == message
+
+
+@pytest.mark.parametrize("key, value", [("level", "DEBUG"), ("category", "OTHER")])
+def test_unknown_level_or_category_raises(key: str, value: str) -> None:
+    """Only the values in the enums are accepted."""
+    data = json.loads(LogEntry("x", LogCategory.MISC, number=1).to_line())
+    data[key] = value
+    with pytest.raises(ValueError):
+        LogEntry.from_line(json.dumps(data))
+
+
+def test_line_that_is_not_json_raises() -> None:
+    """A damaged line is an error, not an empty entry."""
+    with pytest.raises(ValueError):
+        LogEntry.from_line("not json")
+
+
+@pytest.fixture
+def log(tmp_path: Path) -> ProjectLog:
+    """An empty log in a temporary folder, with no file yet."""
+    return ProjectLog(tmp_path / "project.log")
+
+
+def test_written_entries_load_back_in_order(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """A fresh log loaded from the file has the same entries as the one that wrote them."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    log.write(LogEntry("Login failed", LogCategory.HOST, LogLevel.SECURITY), enc_handler)
+    fresh = ProjectLog(log.path)
+    fresh.load(enc_handler)
+    assert fresh.entries == log.entries
+    assert len(fresh.entries) == 2
+
+
+def test_log_file_is_encrypted(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """Each line is a token: nothing of the entry can be read from the file, and it is still one line per entry."""
+    log.write(LogEntry("Login failed on 192.0.2.11", LogCategory.HOST, LogLevel.SECURITY), enc_handler)
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
+    text = log.path.read_text(encoding="utf-8")
+    assert "192.0.2.11" not in text
+    assert "SECURITY" not in text
+    assert len(text.splitlines()) == 2
+
+
+def test_load_with_another_key_skips_every_line(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """A line that can't be decrypted is a damaged line, so it is skipped with a warning, never shown."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    other = EncHandler("other-fake-password", b"fedcba9876543210", iterations=1, memory_kib=8, lanes=1)
+    log.load(other)
+    assert [e.message for e in log.entries] == ["Line 1 in the log is damaged and was skipped"]
+
+
+def test_load_missing_file_gives_no_entries(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """A project without a log file yet is not an error."""
+    log.load(enc_handler)
+    assert log.entries == []
+
+
+def test_load_twice_does_not_duplicate(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """Loading replaces the entries."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    log.load(enc_handler)
+    log.load(enc_handler)
+    assert len(log.entries) == 1
+
+
+def test_write_to_missing_folder_raises_and_keeps_entries(tmp_path: Path, enc_handler: EncHandler) -> None:
+    """If the file can't be written, the entries in memory don't change."""
+    log = ProjectLog(tmp_path / "missing" / "project.log")
+    with pytest.raises(FileNotFoundError):
+        log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    assert log.entries == []
+
+
+def test_blank_lines_are_ignored(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """Empty lines are not entries and not damage."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    with log.path.open("a", encoding="utf-8") as file:
+        file.write("\n   \n")
+    log.load(enc_handler)
+    assert len(log.entries) == 1
+
+
+def test_half_written_line_is_skipped_and_kept_separate(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """After a crash mid-write, only the damaged line is lost, and it is reported once."""
+    log.write(LogEntry("Scan started", LogCategory.SCAN), enc_handler)
+    with log.path.open("a", encoding="utf-8") as file:
+        file.write('{"time": "2026-01-02T03:04:05", "mess')  # crash: no line break at the end
+    log.load(enc_handler)
+    assert [e.message for e in log.entries] == [
+        "Scan started",
+        "Line 2 in the log is damaged and was skipped",
+    ]
+    assert log.entries[1].level == LogLevel.WARNING
+    assert log.entries[1].category == LogCategory.MISC
+
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
+    fresh = ProjectLog(log.path)
+    fresh.load(enc_handler)
+    assert [e.message for e in fresh.entries] == [
+        "Scan started",
+        "Project loaded",
+        "Line 2 in the log is damaged and was skipped",
+    ]
+
+
+@pytest.fixture
+def filled(log: ProjectLog) -> ProjectLog:
+    """A log with four entries at known times, in memory only."""
+    log.entries = [
+        LogEntry("Project created", LogCategory.PROJECT, LogLevel.INFO, datetime(2026, 1, 1)),
+        LogEntry("Login failed on 192.0.2.11", LogCategory.HOST, LogLevel.SECURITY, datetime(2026, 1, 2)),
+        LogEntry("Scan started on 192.0.2.11", LogCategory.SCAN, LogLevel.INFO, datetime(2026, 1, 3)),
+        LogEntry("Scan failed on 192.0.2.12", LogCategory.SCAN, LogLevel.ERROR, datetime(2026, 1, 4)),
+    ]
+    return log
+
+
+def messages(entries: list[LogEntry]) -> list[str]:
+    """Return only the messages, to keep the asserts short."""
+    return [entry.message for entry in entries]
+
+
+def test_find_without_filters_returns_a_copy_of_all(filled: ProjectLog) -> None:
+    """No filters means every entry, in a new list that can be changed safely."""
+    found = filled.find()
+    assert found == filled.entries
+    found.clear()
+    assert len(filled.entries) == 4
+
+
+def test_find_by_category(filled: ProjectLog) -> None:
+    """Only entries of the category are returned, oldest first."""
+    assert messages(filled.find(category=LogCategory.SCAN)) == [
+        "Scan started on 192.0.2.11",
+        "Scan failed on 192.0.2.12",
+    ]
+
+
+def test_find_by_level(filled: ProjectLog) -> None:
+    """Only entries of the level are returned."""
+    assert messages(filled.find(level=LogLevel.SECURITY)) == ["Login failed on 192.0.2.11"]
+
+
+def test_find_since_includes_the_exact_time(filled: ProjectLog) -> None:
+    """An entry at exactly the since time is included."""
+    assert messages(filled.find(since=datetime(2026, 1, 3))) == [
+        "Scan started on 192.0.2.11",
+        "Scan failed on 192.0.2.12",
+    ]
+
+
+def test_find_text_ignores_case(filled: ProjectLog) -> None:
+    """Text search finds the text anywhere in the message, in any case."""
+    assert messages(filled.find(text="LOGIN")) == ["Login failed on 192.0.2.11"]
+    assert len(filled.find(text="192.0.2.11")) == 2
+
+
+def test_find_with_several_filters_needs_all_to_match(filled: ProjectLog) -> None:
+    """Filters combine: an entry must match every one given."""
+    assert messages(filled.find(category=LogCategory.SCAN, text="192.0.2.11")) == ["Scan started on 192.0.2.11"]
+
+
+def test_find_with_no_match_returns_empty(filled: ProjectLog) -> None:
+    """No match is an empty list, not an error."""
+    assert filled.find(level=LogLevel.WARNING) == []
+
+
+def test_line_without_a_whole_number_raises() -> None:
+    """Every line in the file has a number, and only a whole number is accepted."""
+    for number in (None, "5", 1.5):
+        line = json.dumps({"number": number, "time": "2026-01-02T03:04:05", "category": "MISC",
+                           "level": "INFO", "message": "x"})
+        with pytest.raises(ValueError):
+            LogEntry.from_line(line)
+
+
+def test_write_numbers_entries_from_one(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """The log gives each written entry the next number."""
+    first = LogEntry("Project created", LogCategory.PROJECT)
+    second = LogEntry("Project loaded", LogCategory.PROJECT)
+    assert first.number is None
+    log.write(first, enc_handler)
+    log.write(second, enc_handler)
+    assert (first.number, second.number) == (1, 2)
+
+
+def test_numbers_continue_after_a_reload(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """A fresh log continues from the highest number in the file."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
+    fresh = ProjectLog(log.path)
+    fresh.load(enc_handler)
+    entry = LogEntry("Project loaded", LogCategory.PROJECT)
+    fresh.write(entry, enc_handler)
+    assert [e.number for e in fresh.entries] == [1, 2, 3]
+
+
+def test_damaged_line_does_not_shift_numbers(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """The numbers come from the file, not from counting entries, and the warning has no number."""
+    log.write(LogEntry("Scan started", LogCategory.SCAN), enc_handler)
+    log.write(LogEntry("Scan finished", LogCategory.SCAN), enc_handler)
+    lines = log.path.read_text(encoding="utf-8").splitlines()
+    log.path.write_text("damaged\n" + lines[1] + "\n", encoding="utf-8")  # entry 1 is damaged
+    log.load(enc_handler)
+    assert [e.number for e in log.entries] == [2, None]
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
+    assert log.entries[-1].number == 3
+
+
+def test_failed_write_leaves_the_entry_without_a_number(tmp_path: Path, enc_handler: EncHandler) -> None:
+    """An entry that never reached the file doesn't get a number."""
+    log = ProjectLog(tmp_path / "missing" / "project.log")
+    entry = LogEntry("Project created", LogCategory.PROJECT)
+    with pytest.raises(FileNotFoundError):
+        log.write(entry, enc_handler)
+    assert entry.number is None
+
+
+@pytest.fixture
+def numbered(log: ProjectLog) -> ProjectLog:
+    """A log with entries numbered 1 to 5, and one warning without a number, in memory only."""
+    log.entries = [LogEntry(f"Entry {n}", LogCategory.MISC, number=n) for n in range(1, 6)]
+    log.entries.append(LogEntry("Line 9 in the log is damaged and was skipped", LogCategory.MISC, LogLevel.WARNING))
+    return log
+
+
+def test_find_from_number(numbered: ProjectLog) -> None:
+    """from_number includes that number and everything after it."""
+    assert [e.number for e in numbered.find(from_number=4)] == [4, 5]
+
+
+def test_find_to_number(numbered: ProjectLog) -> None:
+    """to_number includes that number and everything before it."""
+    assert [e.number for e in numbered.find(to_number=2)] == [1, 2]
+
+
+def test_find_number_range_and_exact_number(numbered: ProjectLog) -> None:
+    """Both together give a range, and the same number twice gives one entry."""
+    assert [e.number for e in numbered.find(from_number=2, to_number=4)] == [2, 3, 4]
+    assert [e.number for e in numbered.find(from_number=3, to_number=3)] == [3]
+
+
+def test_find_without_number_filter_includes_unnumbered(numbered: ProjectLog) -> None:
+    """Entries without a number are only left out when filtering on numbers."""
+    assert len(numbered.find()) == 6
+    assert len(numbered.find(from_number=1)) == 5
+
+
+def test_next_number_follows_the_highest_even_out_of_order(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """If lines were moved around, the next number is still one above the highest."""
+    for number in (1, 3, 2):
+        line = LogEntry(f"Entry {number}", LogCategory.MISC, number=number).to_line()
+        token = enc_handler.encrypt(line.encode("utf-8")).decode("ascii")
+        with log.path.open("a", encoding="utf-8") as file:
+            file.write(token + "\n")
+    log.load(enc_handler)
+    entry = LogEntry("Project loaded", LogCategory.PROJECT)
+    log.write(entry, enc_handler)
+    assert entry.number == 4
+
+
+def test_failed_write_does_not_use_up_a_number(log: ProjectLog, tmp_path: Path, enc_handler: EncHandler) -> None:
+    """After a failed write, the next successful one gets the number the failed one would have had."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    real_path = log.path
+    log.path = tmp_path / "missing" / "project.log"
+    with pytest.raises(FileNotFoundError):
+        log.write(LogEntry("Lost", LogCategory.MISC), enc_handler)
+    log.path = real_path
+    entry = LogEntry("Project loaded", LogCategory.PROJECT)
+    log.write(entry, enc_handler)
+    assert entry.number == 2
+
+
+@pytest.fixture
+def unsorted() -> list[LogEntry]:
+    """Entries out of order by number and by time, plus one without a number."""
+    return [
+        LogEntry("b", LogCategory.MISC, time=datetime(2026, 1, 3), number=2),
+        LogEntry("warning", LogCategory.MISC, LogLevel.WARNING, time=datetime(2026, 1, 9)),
+        LogEntry("c", LogCategory.MISC, time=datetime(2026, 1, 1), number=3),
+        LogEntry("a", LogCategory.MISC, time=datetime(2026, 1, 2), number=1),
+    ]
+
+
+def test_sort_by_number_puts_unnumbered_last(unsorted: list[LogEntry]) -> None:
+    """Sorting by number is the default, and entries without a number come last."""
+    assert messages(ProjectLog.sort_entries(unsorted)) == ["a", "b", "c", "warning"]
+
+
+def test_sort_by_number_newest_first(unsorted: list[LogEntry]) -> None:
+    """Newest first reverses the numbered entries, and unnumbered ones still come last."""
+    assert messages(ProjectLog.sort_entries(unsorted, newest_first=True)) == ["c", "b", "a", "warning"]
+
+
+def test_sort_by_time(unsorted: list[LogEntry]) -> None:
+    """Sorting by time uses every entry's time, numbered or not."""
+    assert messages(ProjectLog.sort_entries(unsorted, LogOrder.TIME)) == ["c", "a", "b", "warning"]
+    assert messages(ProjectLog.sort_entries(unsorted, LogOrder.TIME, newest_first=True)) == ["warning", "b", "a", "c"]
+
+
+def test_sort_by_time_keeps_order_of_equal_times() -> None:
+    """Two entries at the same time stay in the order they were given."""
+    same = datetime(2026, 1, 1)
+    entries = [LogEntry("first", LogCategory.MISC, time=same), LogEntry("second", LogCategory.MISC, time=same)]
+    assert messages(ProjectLog.sort_entries(entries, LogOrder.TIME)) == ["first", "second"]
+
+
+def test_sort_does_not_change_the_given_list(unsorted: list[LogEntry]) -> None:
+    """The result is a new list, the original keeps its order."""
+    before = list(unsorted)
+    ProjectLog.sort_entries(unsorted)
+    assert unsorted == before
+
+
+def test_new_filter_has_nothing_set() -> None:
+    """A new LogFilter has every field None and counts as False: nothing is filtered."""
+    filters = LogFilter()
+    assert filters == LogFilter(None, None, None, None, None, None)
+    assert not filters
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        LogFilter(level=LogLevel.WARNING),
+        LogFilter(category=LogCategory.HOST),
+        LogFilter(text="192.0.2"),
+        LogFilter(text=""),  # set, even though it is empty: only None means not set
+        LogFilter(since=datetime(2026, 11, 27, 14, 5)),
+        LogFilter(from_number=0),  # 0 is set too: the check is against None, not against falsy values
+        LogFilter(to_number=50),
+    ],
+)
+def test_filter_with_any_field_set_is_true(filters: LogFilter) -> None:
+    """One field set is enough for `if filters:` to be True."""
+    assert filters
