@@ -83,10 +83,10 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 423 passed, 1 xfailed (the plain-text password test, until part B).
+  Expected: 443 passed, 1 xfailed (the plain-text password test, until part B).
   On a new machine, `pip install -r requirements.txt` first.
-- Last finished step: `EncHandler.load` (B4, first half): reads `project.salt` as JSON. Started by me, cleaned up together.
-- Next step: B3, `encrypt(data, name)` and `decrypt(token, name)` on EncHandler. Then `save_settings` (B4).
+- Last finished step: B3, `encrypt(data, name)` and `decrypt(token, name)`. Before that, `EncHandler.load` (B4, first half).
+- Next step: `save_settings` (the rest of B4), writing `project.salt` in the format `load` reads.
 - Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
   Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
 - Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
@@ -123,7 +123,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - [ ] B. Encryption (`netaudit/enc_handler.py`): key from the password, encrypt and decrypt
   - [x] B1. `cryptography` in the venv and requirements.txt
   - [x] B2. EncHandler: `__init__` (checks, key from the password), `create` (new salt), `derive_key`
-  - [ ] B3. `encrypt(data, name)` and `decrypt(token, name)`, the file name inside the data
+  - [x] B3. `encrypt(data, name)` and `decrypt(token, name)`, the file name inside the data
   - [ ] B4. `save_settings` and `load` (load done): `project.salt`, salt and Argon2 settings as JSON, written on create, read on load
   - [ ] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json becomes config.enc
   - [ ] B6. hosts.json becomes hosts.enc

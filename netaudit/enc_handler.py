@@ -5,7 +5,7 @@ import json
 import secrets
 from pathlib import Path
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
 
 
@@ -65,6 +65,41 @@ class EncHandler:
         # Outside the try, so an empty password isn't reported as a damaged file.
         # A salt or setting out of range is refused by derive_key, with a message naming the setting.
         return cls(password, salt, iterations, memory_kib, lanes)
+
+    def encrypt(self, data: bytes, name: str) -> bytes:
+        """Return data encrypted as a Fernet token, with name inside it, so decrypt can tell which file it belongs to.
+
+        name is the file's path inside the project, for example "hosts.enc". Raises ValueError if a value is invalid.
+        The same data gives a different token every time, as Fernet adds a random part."""
+        if not isinstance(data, bytes):
+            raise ValueError(f"Data to encrypt must be bytes, got {type(data).__name__}")
+        EncHandler.check_name(name)
+        return self._fernet.encrypt(name.encode("utf-8") + b"\n" + data)
+
+    def decrypt(self, token: bytes, name: str) -> bytes:
+        """Return the data in a token made by encrypt for the same name.
+
+        Raises ValueError if the password is wrong, the token is damaged, or the token belongs to another file.
+        Fernet can't tell a wrong password from a damaged token: both just fail its check."""
+        if not isinstance(token, bytes):
+            raise ValueError(f"Token must be bytes, got {type(token).__name__}")
+        EncHandler.check_name(name)
+        try:
+            plain = self._fernet.decrypt(token)
+        except InvalidToken as error:
+            raise ValueError("Wrong password, or the file is damaged") from error
+        # partition splits at the first line break only, so line breaks in the data are kept.
+        stored_name, _, data = plain.partition(b"\n")
+        if stored_name != name.encode("utf-8"):
+            # The stored name is safe to show: Fernet has proved that we wrote it.
+            raise ValueError(f"The data belongs to {stored_name.decode('utf-8')!r}, not {name!r}")
+        return data
+
+    @staticmethod
+    def check_name(name: str) -> None:
+        """Raise ValueError unless name is non-empty text without a line break (the line break ends the name)."""
+        if not isinstance(name, str) or not name or "\n" in name:
+            raise ValueError(f"File name must be text without line breaks and cannot be empty, got {name!r}")
 
     @staticmethod
     def derive_key(password: str, salt: bytes, iterations: int, memory_kib: int, lanes: int) -> bytes:
