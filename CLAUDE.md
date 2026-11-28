@@ -88,7 +88,8 @@ Update this section in the commit of every step.
 - Last finished step: B4 to B9 in one step (started by me, finished together): Project holds `enc_handler` and
   encrypts config, hosts, scans and every log line. The menu asks for the project password.
 - Then B10: the encrypted files are named `.enc`, and .gitignore covers them and `project.salt`. Part B is done.
-- Next step: part E, recent projects (plan it first). Then the rest of the test files, if I want.
+- Part E (recent projects) is skipped for now (decided by me, 2026-11-28).
+- Next step: decide whether Milestone 1 is done and can be merged to `main`. Then Milestone 2 on a new branch.
 - Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
   Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
 - Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
@@ -132,7 +133,7 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] B9. Menu: password twice on create (at least 12 characters), once on load, no more "not encrypted" warning.
     The xfail marker is removed: the plain-text password test passes.
   - [x] B10. Encrypted files are named `.enc`, .gitignore covers them and `project.salt`
-- [ ] E. Recent projects: remember paths, pick one when loading
+- [ ] E. Recent projects: remember paths, pick one when loading. Skipped for now (decided by me), maybe later.
 
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
