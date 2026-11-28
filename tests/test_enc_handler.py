@@ -54,13 +54,33 @@ def test_handler_does_not_keep_the_password() -> None:
     assert PASSWORD not in repr(handler)
 
 
-def test_create_uses_a_new_salt_and_the_default_settings() -> None:
+def test_create_uses_a_new_salt_and_the_default_settings(tmp_path: Path) -> None:
     """Each new project gets its own random salt. This test uses the real settings once."""
-    first = EncHandler.create(PASSWORD)
-    second = EncHandler.create(PASSWORD)
+    first = EncHandler.create(tmp_path / "first.salt", PASSWORD)
+    second = EncHandler.create(tmp_path / "second.salt", PASSWORD)
     assert len(first.salt) == SALT_BYTES
     assert first.salt != second.salt
     assert (first.iterations, first.memory_kib, first.lanes) == (DEFAULT_ITERATIONS, DEFAULT_MEMORY_KIB, DEFAULT_LANES)
+
+
+def test_create_writes_a_salt_file_that_load_reads(tmp_path: Path, fast_argon2: None) -> None:
+    """What create encrypts can be decrypted by a handler loaded from the file it wrote."""
+    path = tmp_path / "project.salt"
+    created = EncHandler.create(path, PASSWORD)
+    token = created.encrypt(b"hello")
+    loaded = EncHandler.load(path, PASSWORD)
+    assert (loaded.salt, loaded.iterations, loaded.memory_kib, loaded.lanes) == (
+        created.salt, created.iterations, created.memory_kib, created.lanes
+    )
+    assert loaded.decrypt(token) == b"hello"
+    assert not (tmp_path / "project.salt.tmp").exists()
+
+
+def test_create_with_an_invalid_password_writes_no_file(tmp_path: Path) -> None:
+    """The password is checked before anything is written."""
+    with pytest.raises(ValueError, match="Password"):
+        EncHandler.create(tmp_path / "project.salt", "")
+    assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.parametrize("password", ["", None, 5, b"fake-bytes"])

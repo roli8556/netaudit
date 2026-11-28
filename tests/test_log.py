@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from netaudit.enc_handler import EncHandler
 from netaudit.log import LogCategory, LogEntry, LogFilter, LogLevel, LogOrder, ProjectLog
 
 
@@ -52,53 +53,71 @@ def log(tmp_path: Path) -> ProjectLog:
     return ProjectLog(tmp_path / "project.log")
 
 
-def test_written_entries_load_back_in_order(log: ProjectLog) -> None:
+def test_written_entries_load_back_in_order(log: ProjectLog, enc_handler: EncHandler) -> None:
     """A fresh log loaded from the file has the same entries as the one that wrote them."""
-    log.write(LogEntry("Project created", LogCategory.PROJECT))
-    log.write(LogEntry("Login failed", LogCategory.HOST, LogLevel.SECURITY))
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    log.write(LogEntry("Login failed", LogCategory.HOST, LogLevel.SECURITY), enc_handler)
     fresh = ProjectLog(log.path)
-    fresh.load()
+    fresh.load(enc_handler)
     assert fresh.entries == log.entries
     assert len(fresh.entries) == 2
 
 
-def test_load_missing_file_gives_no_entries(log: ProjectLog) -> None:
+def test_log_file_is_encrypted(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """Each line is a token: nothing of the entry can be read from the file, and it is still one line per entry."""
+    log.write(LogEntry("Login failed on 192.0.2.11", LogCategory.HOST, LogLevel.SECURITY), enc_handler)
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
+    text = log.path.read_text(encoding="utf-8")
+    assert "192.0.2.11" not in text
+    assert "SECURITY" not in text
+    assert len(text.splitlines()) == 2
+
+
+def test_load_with_another_key_skips_every_line(log: ProjectLog, enc_handler: EncHandler) -> None:
+    """A line that can't be decrypted is a damaged line, so it is skipped with a warning, never shown."""
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    other = EncHandler("other-fake-password", b"fedcba9876543210", iterations=1, memory_kib=8, lanes=1)
+    log.load(other)
+    assert [e.message for e in log.entries] == ["Line 1 in the log is damaged and was skipped"]
+
+
+def test_load_missing_file_gives_no_entries(log: ProjectLog, enc_handler: EncHandler) -> None:
     """A project without a log file yet is not an error."""
-    log.load()
+    log.load(enc_handler)
     assert log.entries == []
 
 
-def test_load_twice_does_not_duplicate(log: ProjectLog) -> None:
+def test_load_twice_does_not_duplicate(log: ProjectLog, enc_handler: EncHandler) -> None:
     """Loading replaces the entries."""
-    log.write(LogEntry("Project created", LogCategory.PROJECT))
-    log.load()
-    log.load()
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    log.load(enc_handler)
+    log.load(enc_handler)
     assert len(log.entries) == 1
 
 
-def test_write_to_missing_folder_raises_and_keeps_entries(tmp_path: Path) -> None:
+def test_write_to_missing_folder_raises_and_keeps_entries(tmp_path: Path, enc_handler: EncHandler) -> None:
     """If the file can't be written, the entries in memory don't change."""
     log = ProjectLog(tmp_path / "missing" / "project.log")
     with pytest.raises(FileNotFoundError):
-        log.write(LogEntry("Project created", LogCategory.PROJECT))
+        log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
     assert log.entries == []
 
 
-def test_blank_lines_are_ignored(log: ProjectLog) -> None:
+def test_blank_lines_are_ignored(log: ProjectLog, enc_handler: EncHandler) -> None:
     """Empty lines are not entries and not damage."""
-    log.write(LogEntry("Project created", LogCategory.PROJECT))
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
     with log.path.open("a", encoding="utf-8") as file:
         file.write("\n   \n")
-    log.load()
+    log.load(enc_handler)
     assert len(log.entries) == 1
 
 
-def test_half_written_line_is_skipped_and_kept_separate(log: ProjectLog) -> None:
+def test_half_written_line_is_skipped_and_kept_separate(log: ProjectLog, enc_handler: EncHandler) -> None:
     """After a crash mid-write, only the damaged line is lost, and it is reported once."""
-    log.write(LogEntry("Scan started", LogCategory.SCAN))
+    log.write(LogEntry("Scan started", LogCategory.SCAN), enc_handler)
     with log.path.open("a", encoding="utf-8") as file:
         file.write('{"time": "2026-01-02T03:04:05", "mess')  # crash: no line break at the end
-    log.load()
+    log.load(enc_handler)
     assert [e.message for e in log.entries] == [
         "Scan started",
         "Line 2 in the log is damaged and was skipped",
@@ -106,9 +125,9 @@ def test_half_written_line_is_skipped_and_kept_separate(log: ProjectLog) -> None
     assert log.entries[1].level == LogLevel.WARNING
     assert log.entries[1].category == LogCategory.MISC
 
-    log.write(LogEntry("Project loaded", LogCategory.PROJECT))
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
     fresh = ProjectLog(log.path)
-    fresh.load()
+    fresh.load(enc_handler)
     assert [e.message for e in fresh.entries] == [
         "Scan started",
         "Project loaded",
@@ -187,45 +206,45 @@ def test_line_without_a_whole_number_raises() -> None:
             LogEntry.from_line(line)
 
 
-def test_write_numbers_entries_from_one(log: ProjectLog) -> None:
+def test_write_numbers_entries_from_one(log: ProjectLog, enc_handler: EncHandler) -> None:
     """The log gives each written entry the next number."""
     first = LogEntry("Project created", LogCategory.PROJECT)
     second = LogEntry("Project loaded", LogCategory.PROJECT)
     assert first.number is None
-    log.write(first)
-    log.write(second)
+    log.write(first, enc_handler)
+    log.write(second, enc_handler)
     assert (first.number, second.number) == (1, 2)
 
 
-def test_numbers_continue_after_a_reload(log: ProjectLog) -> None:
+def test_numbers_continue_after_a_reload(log: ProjectLog, enc_handler: EncHandler) -> None:
     """A fresh log continues from the highest number in the file."""
-    log.write(LogEntry("Project created", LogCategory.PROJECT))
-    log.write(LogEntry("Project loaded", LogCategory.PROJECT))
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
     fresh = ProjectLog(log.path)
-    fresh.load()
+    fresh.load(enc_handler)
     entry = LogEntry("Project loaded", LogCategory.PROJECT)
-    fresh.write(entry)
+    fresh.write(entry, enc_handler)
     assert [e.number for e in fresh.entries] == [1, 2, 3]
 
 
-def test_damaged_line_does_not_shift_numbers(log: ProjectLog) -> None:
+def test_damaged_line_does_not_shift_numbers(log: ProjectLog, enc_handler: EncHandler) -> None:
     """The numbers come from the file, not from counting entries, and the warning has no number."""
-    log.write(LogEntry("Scan started", LogCategory.SCAN))
-    log.write(LogEntry("Scan finished", LogCategory.SCAN))
+    log.write(LogEntry("Scan started", LogCategory.SCAN), enc_handler)
+    log.write(LogEntry("Scan finished", LogCategory.SCAN), enc_handler)
     lines = log.path.read_text(encoding="utf-8").splitlines()
     log.path.write_text("damaged\n" + lines[1] + "\n", encoding="utf-8")  # entry 1 is damaged
-    log.load()
+    log.load(enc_handler)
     assert [e.number for e in log.entries] == [2, None]
-    log.write(LogEntry("Project loaded", LogCategory.PROJECT))
+    log.write(LogEntry("Project loaded", LogCategory.PROJECT), enc_handler)
     assert log.entries[-1].number == 3
 
 
-def test_failed_write_leaves_the_entry_without_a_number(tmp_path: Path) -> None:
+def test_failed_write_leaves_the_entry_without_a_number(tmp_path: Path, enc_handler: EncHandler) -> None:
     """An entry that never reached the file doesn't get a number."""
     log = ProjectLog(tmp_path / "missing" / "project.log")
     entry = LogEntry("Project created", LogCategory.PROJECT)
     with pytest.raises(FileNotFoundError):
-        log.write(entry)
+        log.write(entry, enc_handler)
     assert entry.number is None
 
 
@@ -259,28 +278,29 @@ def test_find_without_number_filter_includes_unnumbered(numbered: ProjectLog) ->
     assert len(numbered.find(from_number=1)) == 5
 
 
-def test_next_number_follows_the_highest_even_out_of_order(log: ProjectLog) -> None:
+def test_next_number_follows_the_highest_even_out_of_order(log: ProjectLog, enc_handler: EncHandler) -> None:
     """If lines were moved around, the next number is still one above the highest."""
     for number in (1, 3, 2):
         line = LogEntry(f"Entry {number}", LogCategory.MISC, number=number).to_line()
+        token = enc_handler.encrypt(line.encode("utf-8")).decode("ascii")
         with log.path.open("a", encoding="utf-8") as file:
-            file.write(line + "\n")
-    log.load()
+            file.write(token + "\n")
+    log.load(enc_handler)
     entry = LogEntry("Project loaded", LogCategory.PROJECT)
-    log.write(entry)
+    log.write(entry, enc_handler)
     assert entry.number == 4
 
 
-def test_failed_write_does_not_use_up_a_number(log: ProjectLog, tmp_path: Path) -> None:
+def test_failed_write_does_not_use_up_a_number(log: ProjectLog, tmp_path: Path, enc_handler: EncHandler) -> None:
     """After a failed write, the next successful one gets the number the failed one would have had."""
-    log.write(LogEntry("Project created", LogCategory.PROJECT))
+    log.write(LogEntry("Project created", LogCategory.PROJECT), enc_handler)
     real_path = log.path
     log.path = tmp_path / "missing" / "project.log"
     with pytest.raises(FileNotFoundError):
-        log.write(LogEntry("Lost", LogCategory.MISC))
+        log.write(LogEntry("Lost", LogCategory.MISC), enc_handler)
     log.path = real_path
     entry = LogEntry("Project loaded", LogCategory.PROJECT)
-    log.write(entry)
+    log.write(entry, enc_handler)
     assert entry.number == 2
 
 

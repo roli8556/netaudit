@@ -83,10 +83,11 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 437 passed, 1 xfailed (the plain-text password test, until part B).
+  Expected: 458 passed.
   On a new machine, `pip install -r requirements.txt` first.
-- Last finished step: B3, `encrypt(data)` and `decrypt(token)`, without the file name inside (decided by me). Before that, `EncHandler.load` (B4, first half).
-- Next step: `save_settings` (the rest of B4), writing `project.salt` in the format `load` reads.
+- Last finished step: B4 to B9 in one step (started by me, finished together): Project holds `enc_handler` and
+  encrypts config, hosts, scans and every log line. The menu asks for the project password.
+- Next step: B10. Decide whether to rename the files to `.enc` and how .gitignore should cover them and `project.salt`.
 - Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
   Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
 - Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
@@ -95,11 +96,9 @@ Update this section in the commit of every step.
   With no filter, Show uses the whole log. `if filters:` uses `LogFilter.__bool__` (True if any field isn't None).
   `newest_first` is a separate local variable: order isn't a filter, so clear filters keeps it.
 
-### Temporary exception to the security requirements (decided by me)
-- Until part B, config, hosts and scans are saved as plain JSON, and `hosts.json` includes the passwords.
-  Don't undo this and don't bring encryption forward: structure comes first.
-- Don't use it with a real network until part B is done.
-- These files are ignored by Git by name: `config.json`, `hosts.json`, their `.tmp`, `*.scan.json`, `configs/`.
+### Git and project files
+- Project files are encrypted since part B, but still ignored by Git by name: `config.json`, `hosts.json`,
+  their `.tmp`, `*.scan.json`, `configs/`, `*.log`. `project.salt` isn't ignored yet (B10).
 
 ### Done
 - Milestone 0: project skeleton (venv, .gitignore, main.py, pytest, tests folder).
@@ -124,38 +123,51 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] B1. `cryptography` in the venv and requirements.txt
   - [x] B2. EncHandler: `__init__` (checks, key from the password), `create` (new salt), `derive_key`
   - [x] B3. `encrypt(data)` and `decrypt(token)`
-  - [ ] B4. `save_settings` and `load` (load done): `project.salt`, salt and Argon2 settings as JSON, written on create, read on load
-  - [ ] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json becomes config.enc
-  - [ ] B6. hosts.json becomes hosts.enc
-  - [ ] B7. Scans become `.scan.enc`
-  - [ ] B8. The log: one encrypted token per line
-  - [ ] B9. Menu: password twice on create (at least 12 characters), once on load, no more "not encrypted" warning
-  - [ ] B10. .gitignore `*.enc` and `*.enc.tmp`, remove the xfail marker
+  - [x] B4. `project.salt`: `create(path, password)` writes it, `load(path, password)` reads it (JSON, salt as base64)
+  - [x] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json encrypted
+  - [x] B6. hosts.json encrypted
+  - [x] B7. Scans encrypted
+  - [x] B8. The log: one encrypted token per line
+  - [x] B9. Menu: password twice on create (at least 12 characters), once on load, no more "not encrypted" warning.
+    The xfail marker is removed: the plain-text password test passes.
+  - [ ] B10. File names (`.enc`?) and .gitignore (`project.salt`)
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
 - `main.py`: starts the menu, and ends cleanly on Ctrl+C or end of input.
 - `netaudit/menu.py`: Menu, the text menu (start menu, create and load project, project menu with show, add and remove hosts, show log, and close),
   `is_safe_folder_name` and `make_printable`.
-- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, hosts, scans, log, issues; create,
-  load, add and remove hosts).
+- `netaudit/project.py`: ProjectConfig (settings) and Project (path, config, enc_handler, hosts, scans, log, issues;
+  create, load, add and remove hosts). SALT_FILE is the salt file's name.
 - `netaudit/host.py`: Host, one device with its SSH login, privilege level and available commands.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
 - `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event), LogFilter (what the log menu looks for) and ProjectLog (all entries, in memory and file,
   `find` to filter them, `sort_entries` to sort any list of them).
 - `netaudit/enc_handler.py`: EncHandler, one project's encryption. Makes the key from the password with Argon2id
-  and keeps a Fernet object, the salt and the settings, never the password. Will be `project.enc_handler` (B5).
+  and keeps a Fernet object, the salt and the settings, never the password. `create` and `load` read and write
+  `project.salt`, `encrypt` and `decrypt` turn bytes into a token and back.
+- `tests/conftest.py`: fixtures shared by test files: `enc_handler` (fast, fixed salt) and `fast_argon2`
+  (makes new projects use tiny Argon2 settings), and PROJECT_PASSWORD.
 
 ### A project on disk (can be anywhere)
-- `config.json`: the project's own settings.
-- `hosts.json`: the hosts, becomes `hosts.enc`.
+- `project.salt`: the salt and Argon2 settings, plain JSON (needed to make the key, not secret). Lost = project lost.
+- `config.json`: the project's own settings, encrypted.
+- `hosts.json`: the hosts, encrypted.
 - `configs/`: running configs of the devices. Not the project's settings.
-- `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.json`, never overwritten.
-- `logs/project.log`: the log, one JSON object per line (ignored by Git through `*.log`).
+- `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.json`, encrypted, never overwritten.
+- `logs/project.log`: the log, one token per line, each an encrypted JSON object (ignored by Git through `*.log`).
 - Later more, for example topology.
 
 ### Decided
-- All project files will be encrypted. JSON for most of them, inside the encryption.
+- All project files are encrypted, except `project.salt`. JSON inside the encryption.
+- Only Project holds the EncHandler (decided by me). ProjectConfig, ProjectLog and Scan get it as an argument
+  of the method that reads or writes, and never keep it.
+- A wrong password is found on config.json, the first file decrypted: "Wrong password, or the file is damaged",
+  outside the try, so it isn't called damage. Hosts and scans decrypt inside the try: the password is already
+  proven right then, so a failure there is "<file> is damaged". A log line that can't be decrypted is a damaged line.
+- A wrong password writes nothing to the log: with the wrong key the entry couldn't be read back.
+- The log is one token per line, not one token for the whole file (decided by me): writing stays append-only, a crash
+  or a damaged byte costs one entry, not the history. About 22 microseconds per line, but twice the size on disk.
 - Key from the password: Argon2id. Encryption: Fernet. One salt per project.
 - Argon2id settings: RFC 9106's low-memory choice (3 passes, 64 MiB, 4 lanes). Tests use tiny settings to stay fast.
   `project.salt` stores the settings next to the salt (decided by me), so raising them later doesn't lock out old projects.
@@ -166,8 +178,8 @@ Order: A, C, D (structure), then B (encryption), then E.
   Each menu prints its own options, reads the choice with `ask`, and calls a method per choice
   (e.g. `create_project_menu`). `q` (or `Q`) exits or goes back. `ask` handles all typed input. `run` shows ValueError and OSError as `Error: ...` on stderr.
   `project_menu` catches them too, so an error there keeps the project open (put the except where the program
-  should carry on). Passwords with getpass. Port and timeout are asked with the default shown. Until part B, create and load
-  warn that the project isn't encrypted. Device text is made printable before it is shown.
+  should carry on). Passwords with getpass. Port and timeout are asked with the default shown.
+  Create asks the project password twice (MIN_PASSWORD_LENGTH 12) before anything is created. Device text is made printable before it is shown.
 - A new project's folder is location/name, so the menu only accepts names that are safe folder names
   (`is_safe_folder_name`: letters, digits, spaces, - and _, no reserved Windows names). The location must exist.
   A bad answer while creating goes back to the start menu with an error; nothing is created.
@@ -188,14 +200,14 @@ Order: A, C, D (structure), then B (encryption), then E.
   A key that changed since it was stored is always refused, whatever the setting (could be a MITM).
 - SCAN_TYPES is a plain dict on purpose (easy to read). Each new scan class gets a line, key = class name.
 - A scan stores host IPs, never Host objects (they contain passwords).
-- `Project.create(path, config)` and `Project.load(path)` are classmethods that return a complete Project.
+- `Project.create(path, config, password)` and `Project.load(path, password)` are classmethods that return a complete Project.
   The constructor stays plain (no disk access). `load_hosts` and `load_scans` refresh parts of an existing project.
-- The log is our own class, not the `logging` module (encryption in part B, reading it back in the menu).
+- The log is our own class, not the `logging` module (each line encrypted, reading it back in the menu).
   An entry has a category (PROJECT, HOST, SCAN, CHECK, MISC) and a level (INFO, WARNING, ERROR, SECURITY).
   SCAN = collecting data from devices, CHECK = checking it for problems.
 - Findings are not log entries: they are stored with the scan. The log only gets a summary line per scan.
   Finding severity will be its own enum on the Finding class (Milestone 5).
-- ProjectLog keeps all entries in memory. `write(entry)` writes to the file first, then to the list.
+- ProjectLog keeps all entries in memory. `write(entry, enc_handler)` writes to the file first, then to the list.
   Create a LogEntry right before writing it, so its time is when it happened.
   `write` gives each entry its number: `_last_number` + 1 (not len + 1). `load` sets `_last_number` to the
   highest number in the file (max, so moved lines can't cause a repeat), `write` updates it after writing. None = not in the file, as for
@@ -227,12 +239,11 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `Project.create` doesn't save hosts, only the config. Call `save_hosts` after.
 - `Scan.write` can't save datetime or Path fields of subclasses, and tuples load back as lists.
 
-### Notes for part B
+### Notes on encryption
 - Gaps in log numbers mean deleted lines. A later check could report them as a SECURITY warning.
 - Files are not bound to their path (decided by me): a token copied over another file of the project decrypts fine.
-  Swapping config.enc and hosts.enc just fails as damaged, but two swapped scan files would not be noticed.
-- A plain `project.salt` file was proposed for the salt.
-- Ignore `*.enc` and `*.enc.tmp` in Git. Remove the xfail marker when the plain-text test passes.
+  Swapping config.json and hosts.json just fails as damaged, but two swapped scan files would not be noticed.
+- An older copy of a file put back in its place isn't noticed either.
 
 ### Notes for Milestone 2
 - Privilege level: `show privilege` prints "Current privilege level is N". It is refused at level 0, so treat a

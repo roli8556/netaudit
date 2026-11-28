@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from netaudit.enc_handler import EncHandler
 from netaudit.scans.scans import SCAN_TYPES, Scan
 
 
@@ -37,11 +38,11 @@ def test_scan_stores_when_it_was_performed() -> None:
     assert before <= scan.performed_at <= datetime.now()
 
 
-def test_write_includes_subclass_data(tmp_path: Path) -> None:
+def test_write_includes_subclass_data(tmp_path: Path, enc_handler: EncHandler) -> None:
     """The base class writes fields that only the subclass declares."""
     when = datetime(2026, 1, 2, 3, 4, 5, 6)
-    path = FakeScan("192.0.2.11", [10, 20], performed_at=when).write(tmp_path)
-    assert json.loads(path.read_text(encoding="utf-8")) == {
+    path = FakeScan("192.0.2.11", [10, 20], performed_at=when).write(tmp_path, enc_handler)
+    assert json.loads(enc_handler.decrypt(path.read_bytes())) == {
         "type": "FakeScan",
         "performed_at": "2026-01-02T03:04:05.000006",
         "host_ip": "192.0.2.11",
@@ -49,35 +50,43 @@ def test_write_includes_subclass_data(tmp_path: Path) -> None:
     }
 
 
-def test_file_name_has_time_and_type(tmp_path: Path) -> None:
+def test_write_encrypts_the_file(tmp_path: Path, enc_handler: EncHandler) -> None:
+    """Nothing in the scan can be read from the file without the key."""
+    path = FakeScan("192.0.2.11", [10], performed_at=datetime(2026, 1, 2)).write(tmp_path, enc_handler)
+    content = path.read_bytes()
+    assert b"192.0.2.11" not in content
+    assert b"FakeScan" not in content
+
+
+def test_file_name_has_time_and_type(tmp_path: Path, enc_handler: EncHandler) -> None:
     """The name sorts by time and ends in what .gitignore matches."""
     when = datetime(2026, 1, 2, 3, 4, 5, 6)
-    path = FakeScan("192.0.2.11", [], performed_at=when).write(tmp_path)
+    path = FakeScan("192.0.2.11", [], performed_at=when).write(tmp_path, enc_handler)
     assert path.name == "2026-01-02_03-04-05-000006_FakeScan.scan.json"
 
 
-def test_write_creates_the_scans_folder(tmp_path: Path) -> None:
+def test_write_creates_the_scans_folder(tmp_path: Path, enc_handler: EncHandler) -> None:
     """The first scan in a project creates its folder."""
     folder = tmp_path / "scans"
-    path = Scan().write(folder)
+    path = Scan().write(folder, enc_handler)
     assert path.parent == folder
     assert path.is_file()
 
 
-def test_write_never_overwrites_a_scan(tmp_path: Path) -> None:
+def test_write_never_overwrites_a_scan(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A scan is a record, so a second write to the same file fails."""
     when = datetime(2026, 1, 2, 3, 4, 5)
-    path = FakeScan("192.0.2.11", [10], performed_at=when).write(tmp_path)
+    path = FakeScan("192.0.2.11", [10], performed_at=when).write(tmp_path, enc_handler)
     old_content = path.read_bytes()
     with pytest.raises(FileExistsError):
-        FakeScan("192.0.2.99", [99], performed_at=when).write(tmp_path)
+        FakeScan("192.0.2.99", [99], performed_at=when).write(tmp_path, enc_handler)
     assert path.read_bytes() == old_content
 
 
-def test_write_to_missing_project_raises(tmp_path: Path) -> None:
+def test_write_to_missing_project_raises(tmp_path: Path, enc_handler: EncHandler) -> None:
     """Write creates the scans folder, but not a missing project above it."""
     with pytest.raises(FileNotFoundError):
-        Scan().write(tmp_path / "missing" / "scans")
+        Scan().write(tmp_path / "missing" / "scans", enc_handler)
 
 
 def test_new_scan_has_no_path() -> None:
@@ -85,14 +94,14 @@ def test_new_scan_has_no_path() -> None:
     assert Scan().path is None
 
 
-def test_write_remembers_the_path(tmp_path: Path) -> None:
+def test_write_remembers_the_path(tmp_path: Path, enc_handler: EncHandler) -> None:
     """After writing, the scan knows where it is."""
     scan = Scan()
-    path = scan.write(tmp_path)
+    path = scan.write(tmp_path, enc_handler)
     assert scan.path == path
 
 
-def test_scan_with_a_path_can_be_written(tmp_path: Path) -> None:
+def test_scan_with_a_path_can_be_written(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A scan that knows its path can still be written."""
     scan = Scan(path=tmp_path / "earlier.scan.json")
-    assert scan.write(tmp_path).is_file()
+    assert scan.write(tmp_path, enc_handler).is_file()

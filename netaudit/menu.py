@@ -10,8 +10,8 @@ from netaudit.host import Host
 from netaudit.log import LogEntry, LogFilter, LogLevel, LogCategory
 from netaudit.project import Project, ProjectConfig, ProjectIssue
 
-# Shown after creating or loading a project, until part B encrypts the files.
-NOT_ENCRYPTED_WARNING = "WARNING: this project is not encrypted yet. Use fake passwords only."
+# A new project's password must be at least this long. There is no recovery, so it can't be changed later either.
+MIN_PASSWORD_LENGTH = 12
 
 # Rows per page in print_as_pages.
 PAGE_SIZE = 20
@@ -80,9 +80,15 @@ class Menu:
         port = self.ask_number("SSH port [22]: ", 22)
         timeout = self.ask_number("SSH timeout in seconds [10]: ", 10)
         config = ProjectConfig(name, ssh_port=port, ssh_timeout=timeout)
-        self.project = Project.create(location / name, config)
+        # getpass, not ask: the password isn't shown while typing, and spaces at the ends are kept
+        password = getpass(f"Project password (at least {MIN_PASSWORD_LENGTH} characters): ")
+        if len(password) < MIN_PASSWORD_LENGTH:
+            raise ValueError(f"The password must be at least {MIN_PASSWORD_LENGTH} characters")
+        if getpass("Project password again: ") != password:
+            raise ValueError("The passwords don't match")
+        print("There is no way to recover a lost project password.")
+        self.project = Project.create(location / name, config, password)
         print(f"Created project {name!r} in {self.project.path}")
-        print(NOT_ENCRYPTED_WARNING)
         self.project_menu()
 
     def project_menu(self) -> None:
@@ -309,7 +315,7 @@ class Menu:
     def load_project_menu(self) -> None:
         """Ask for a project's folder, load it, deal with its issues, and open its project menu.
 
-        Raises ValueError for a folder that isn't a project or a damaged project file. run shows the
+        Raises ValueError for a folder that isn't a project, a wrong password or a damaged project file. run shows the
         error, and no project is opened."""
         print()
         print("Load project")
@@ -318,9 +324,9 @@ class Menu:
             raise ValueError(f"{path} is not a folder")
         if not (path / "config.json").is_file():
             raise ValueError(f"{path} is not a netaudit project (it has no config.json)")
-        project = Project.load(path)
+        password = getpass("Project password: ")
+        project = Project.load(path, password)
         print(f"Loaded project {project.config.name!r} ({len(project.hosts)} hosts)")
-        print(NOT_ENCRYPTED_WARNING)
         if not self.missing_folders_menu(project):
             return  # the user chose to close the project
         self.project = project  # only now, so a failure above never leaves a half-opened project

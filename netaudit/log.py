@@ -6,6 +6,8 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
+from netaudit.enc_handler import EncHandler
+
 
 class LogLevel(Enum):
     """How serious a logged event is."""
@@ -106,8 +108,9 @@ class ProjectLog:
     entries: list[LogEntry] = field(default_factory=list)
     _last_number: int = field(default=0, init=False)  # highest number in the file, set by load and write
 
-    def load(self) -> None:
-        """Read all entries from the file into self.entries. A missing file means no entries.
+    def load(self, enc_handler: EncHandler) -> None:
+        """Read all entries from the file into self.entries, decrypting each line with enc_handler.
+        A missing file means no entries.
 
         A damaged line (for example half written when netaudit crashed) is skipped, and a warning
         about it is added to self.entries only, not to the file, so loading never changes the file."""
@@ -122,8 +125,9 @@ class ProjectLog:
             if not line.strip():
                 continue
             try:
-                entries.append(LogEntry.from_line(line))
-            except (ValueError, KeyError, TypeError):
+                # Each line is one token. A token that can't be decrypted is a ValueError, so a damaged line too.
+                entries.append(LogEntry.from_line(enc_handler.decrypt(line.encode("ascii")).decode("utf-8")))
+            except (ValueError, KeyError, TypeError):  # bad ASCII or UTF-8 (UnicodeError) is a ValueError too
                 damaged.append(number)
         # max, not the last entry: if lines were moved around, the last one isn't the highest
         self._last_number = max((entry.number for entry in entries), default=0)
@@ -132,13 +136,15 @@ class ProjectLog:
             entries.append(LogEntry(message, LogCategory.MISC, LogLevel.WARNING))
         self.entries = entries
 
-    def write(self, entry: LogEntry) -> None:
-        """Give the entry the next number, add it to the end of the file, then to self.entries.
+    def write(self, entry: LogEntry, enc_handler: EncHandler) -> None:
+        """Give the entry the next number, add it encrypted to the end of the file, then to self.entries.
 
+        Each entry is one line: a token, which never contains a line break.
         Create the entry right before writing it, so its time is when it happened.
         Raises FileNotFoundError if the folder doesn't exist, and then the entry and self.entries are unchanged."""
         number = self._last_number + 1
-        line = replace(entry, number=number).to_line() + "\n"  # a copy, so a failed write leaves entry as it was
+        text = replace(entry, number=number).to_line()  # a copy, so a failed write leaves entry as it was
+        line = enc_handler.encrypt(text.encode("utf-8")).decode("ascii") + "\n"  # a token is ASCII
         if self._ends_with_half_line():
             line = "\n" + line  # don't glue the new entry onto a damaged line
         with self.path.open("a", encoding="utf-8") as file:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import PROJECT_PASSWORD
 from netaudit.menu import Menu, is_safe_folder_name, make_printable
 from netaudit.host import Host
 from netaudit.log import LogCategory, LogEntry, LogLevel
@@ -20,6 +21,15 @@ def fake_getpass(monkeypatch: pytest.MonkeyPatch, passwords: list[str]) -> None:
     """Make the menu's getpass() return these passwords one by one, as if the user typed them."""
     remaining = iter(passwords)
     monkeypatch.setattr("netaudit.menu.getpass", lambda prompt="": next(remaining))
+
+
+@pytest.fixture(autouse=True)
+def project_password_answer(fast_argon2: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every getpass answers the test project's password, unless a test calls fake_getpass itself.
+
+    So creating asks it twice and gets the same password, and loading gets the right one.
+    fast_argon2 (conftest.py) keeps the projects these tests create fast."""
+    monkeypatch.setattr("netaudit.menu.getpass", lambda prompt="": PROJECT_PASSWORD)
 
 
 def test_choosing_exit_ends_the_menu(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -105,10 +115,10 @@ def test_create_project_with_defaults(
     fake_input(monkeypatch, ["office", str(tmp_path), "", "", "q"])
     menu = Menu()
     menu.create_project_menu()
-    config = Project.load(tmp_path / "office").config
+    config = Project.load(tmp_path / "office", PROJECT_PASSWORD).config
     assert (config.name, config.ssh_port, config.ssh_timeout) == ("office", 22, 10)
     out = capsys.readouterr().out
-    assert "WARNING: this project is not encrypted yet" in out
+    assert "There is no way to recover a lost project password." in out
     assert "Project: office (0 hosts)" in out
     assert menu.project is None  # closed
 
@@ -117,8 +127,52 @@ def test_create_project_with_own_port_and_timeout(monkeypatch: pytest.MonkeyPatc
     """Typed numbers replace the defaults."""
     fake_input(monkeypatch, ["lab", str(tmp_path), "2222", "30", "q"])
     Menu().create_project_menu()
-    config = Project.load(tmp_path / "lab").config
+    config = Project.load(tmp_path / "lab", PROJECT_PASSWORD).config
     assert (config.ssh_port, config.ssh_timeout) == (2222, 30)
+
+
+@pytest.mark.parametrize("password", ["", "short", "elevenchars"])
+def test_create_project_with_a_short_password_creates_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, password: str
+) -> None:
+    """A project password needs at least 12 characters, and nothing is created with a shorter one."""
+    fake_input(monkeypatch, ["office", str(tmp_path), "", ""])
+    fake_getpass(monkeypatch, [password, password])
+    with pytest.raises(ValueError, match="at least 12 characters"):
+        Menu().create_project_menu()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_create_project_with_exactly_12_characters_works(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """12 is the limit, so it is accepted, and that password opens the project."""
+    fake_input(monkeypatch, ["office", str(tmp_path), "", "", "q"])
+    fake_getpass(monkeypatch, ["twelve-chars", "twelve-chars"])
+    Menu().create_project_menu()
+    assert Project.load(tmp_path / "office", "twelve-chars").config.name == "office"
+
+
+def test_create_project_with_passwords_that_dont_match_creates_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The second password must be the same as the first, so a typo can't lock the project for good."""
+    fake_input(monkeypatch, ["office", str(tmp_path), "", ""])
+    fake_getpass(monkeypatch, [PROJECT_PASSWORD, PROJECT_PASSWORD + "x"])
+    with pytest.raises(ValueError, match="The passwords don't match"):
+        Menu().create_project_menu()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_create_project_never_shows_the_password(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """The project password isn't printed, and no file in the project contains it."""
+    fake_input(monkeypatch, ["office", str(tmp_path), "", "", "q"])
+    Menu().create_project_menu()
+    captured = capsys.readouterr()
+    assert PROJECT_PASSWORD not in captured.out + captured.err
+    for file in (tmp_path / "office").rglob("*"):
+        if file.is_file():
+            assert PROJECT_PASSWORD.encode("utf-8") not in file.read_bytes()
 
 
 def test_create_project_from_the_start_menu(
@@ -164,11 +218,11 @@ def test_create_project_with_bad_port_creates_nothing(
 
 def test_create_project_over_an_existing_one_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """An existing project folder is never overwritten."""
-    Project.create(tmp_path / "office", ProjectConfig("office", ssh_port=2222))
+    Project.create(tmp_path / "office", ProjectConfig("office", ssh_port=2222), PROJECT_PASSWORD)
     fake_input(monkeypatch, ["office", str(tmp_path), "", ""])
     with pytest.raises(FileExistsError):
         Menu().create_project_menu()
-    assert Project.load(tmp_path / "office").config.ssh_port == 2222
+    assert Project.load(tmp_path / "office", PROJECT_PASSWORD).config.ssh_port == 2222
 
 
 def test_create_error_is_shown_and_start_menu_continues(
@@ -187,7 +241,7 @@ def test_project_menu_refuses_other_choices(
 ) -> None:
     """Only the listed choices work in the project menu."""
     menu = Menu()
-    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"), PROJECT_PASSWORD)
     fake_input(monkeypatch, ["5", "q"])
     menu.project_menu()
     assert "Please type 1, 2, 3, 4 or q." in capsys.readouterr().err
@@ -224,7 +278,7 @@ def test_unsafe_folder_names(name: str) -> None:
 @pytest.fixture
 def saved(tmp_path: Path) -> Project:
     """A project on disk with one host, ready to be loaded."""
-    project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    project = Project.create(tmp_path / "office", ProjectConfig("office"), PROJECT_PASSWORD)
     project.add_host(Host("192.0.2.11", "auditor", "fake-login"))
     return project
 
@@ -238,7 +292,6 @@ def test_load_project_and_close_it(
     menu.load_project_menu()
     out = capsys.readouterr().out
     assert "Loaded project 'office' (1 hosts)" in out
-    assert "WARNING: this project is not encrypted yet" in out
     assert "Project: office (1 hosts)" in out
     assert menu.project is None
 
@@ -259,7 +312,7 @@ def test_show_hosts_without_hosts(
 ) -> None:
     """An empty project says so instead of printing an empty table."""
     menu = Menu()
-    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"), PROJECT_PASSWORD)
     menu.show_hosts()
     out = capsys.readouterr().out
     assert "No hosts yet." in out
@@ -307,7 +360,7 @@ def test_add_host_saves_it(
     captured = capsys.readouterr()
     assert "Added host 192.0.2.20" in captured.out
     assert "fake-new-login" not in captured.out + captured.err
-    reloaded = Project.load(saved.path)
+    reloaded = Project.load(saved.path, PROJECT_PASSWORD)
     assert reloaded.hosts[-1] == Host("192.0.2.20", "admin", "fake-new-login", accept_unknown_host_key=accept)
 
 
@@ -331,7 +384,7 @@ def test_add_host_with_a_bad_answer_adds_nothing(
     with pytest.raises(ValueError, match=message):
         menu.add_host_menu()
     assert len(saved.hosts) == 1
-    assert len(Project.load(saved.path).hosts) == 1
+    assert len(Project.load(saved.path, PROJECT_PASSWORD).hosts) == 1
 
 
 def test_add_host_with_an_enable_password_saves_it(
@@ -345,7 +398,7 @@ def test_add_host_with_an_enable_password_saves_it(
     menu.add_host_menu()
     captured = capsys.readouterr()
     assert "fake-new-enable" not in captured.out + captured.err
-    reloaded = Project.load(saved.path)
+    reloaded = Project.load(saved.path, PROJECT_PASSWORD)
     assert reloaded.hosts[-1] == Host("192.0.2.20", "admin", "fake-new-login", enable_password="fake-new-enable")
 
 
@@ -358,7 +411,7 @@ def test_add_host_without_an_enable_password_stores_none(
     menu = Menu()
     menu.project = saved
     menu.add_host_menu()
-    assert Project.load(saved.path).hosts[-1].enable_password is None
+    assert Project.load(saved.path, PROJECT_PASSWORD).hosts[-1].enable_password is None
 
 
 def test_add_host_with_a_line_break_in_the_enable_password_adds_nothing(
@@ -372,7 +425,7 @@ def test_add_host_with_a_line_break_in_the_enable_password_adds_nothing(
     with pytest.raises(ValueError, match="Enable password contains a control character") as error:
         menu.add_host_menu()
     assert "fake-enable" not in str(error.value)
-    assert len(Project.load(saved.path).hosts) == 1
+    assert len(Project.load(saved.path, PROJECT_PASSWORD).hosts) == 1
 
 
 def test_error_in_project_menu_keeps_the_project_open(
@@ -407,7 +460,7 @@ def test_remove_host_by_number(
     two_hosts.remove_host_menu()
     assert "Removed host 192.0.2.12" in capsys.readouterr().out
     assert [host.ip for host in two_hosts.project.hosts] == ["192.0.2.11"]
-    assert [host.ip for host in Project.load(two_hosts.project.path).hosts] == ["192.0.2.11"]
+    assert [host.ip for host in Project.load(two_hosts.project.path, PROJECT_PASSWORD).hosts] == ["192.0.2.11"]
 
 
 @pytest.mark.parametrize("confirm", ["", "n", "N"])
@@ -418,7 +471,7 @@ def test_remove_host_keeps_it_unless_confirmed(
     fake_input(monkeypatch, ["1", confirm])
     two_hosts.remove_host_menu()
     assert "Nothing removed." in capsys.readouterr().out
-    assert len(Project.load(two_hosts.project.path).hosts) == 2
+    assert len(Project.load(two_hosts.project.path, PROJECT_PASSWORD).hosts) == 2
 
 
 def test_remove_host_q_goes_back(monkeypatch: pytest.MonkeyPatch, two_hosts: Menu) -> None:
@@ -450,7 +503,7 @@ def test_remove_host_with_a_bad_confirmation_removes_nothing(monkeypatch: pytest
 def test_remove_host_without_hosts(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     """An empty project says there is nothing to remove, without asking anything."""
     menu = Menu()
-    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"))
+    menu.project = Project.create(tmp_path / "office", ProjectConfig("office"), PROJECT_PASSWORD)
     menu.remove_host_menu()  # no fake_input: asking would fail the test
     assert "No hosts to remove." in capsys.readouterr().out
 
@@ -464,6 +517,21 @@ def test_project_menu_removes_hosts(
     out = capsys.readouterr().out
     assert "Project: office (2 hosts)" in out
     assert "Project: office (1 hosts)" in out
+
+
+def test_load_with_the_wrong_password_shows_an_error_and_returns(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
+) -> None:
+    """A wrong password is an error on stderr, then the start menu, with no project open."""
+    fake_input(monkeypatch, ["2", str(saved.path), "q"])
+    fake_getpass(monkeypatch, ["wrong-fake-password"])
+    menu = Menu()
+    menu.run()
+    captured = capsys.readouterr()
+    assert "Error: Wrong password, or the file is damaged" in captured.err
+    assert "wrong-fake-password" not in captured.out + captured.err
+    assert captured.out.count("Start menu") == 2
+    assert menu.project is None
 
 
 def test_load_missing_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -815,7 +883,7 @@ def test_show_log_menu_filters_by_level(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
     """After choosing WARNING as level, Show only shows warnings, and the title and menu say so."""
-    saved.log.write(LogEntry("Host 192.0.2.11 didn't answer", LogCategory.HOST, LogLevel.WARNING))
+    saved.log.write(LogEntry("Host 192.0.2.11 didn't answer", LogCategory.HOST, LogLevel.WARNING), saved.enc_handler)
     fake_input(monkeypatch, ["2", "2", "1", "q"])  # Level, 2 = WARNING, Show, Back
     menu = Menu()
     menu.project = saved

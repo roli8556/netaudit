@@ -40,9 +40,25 @@ class EncHandler:
         self.lanes = lanes
 
     @classmethod
-    def create(cls, password: str) -> "EncHandler":
-        """Return a handler for a new project: a new random salt and the default settings."""
-        return cls(password, secrets.token_bytes(SALT_BYTES))
+    def create(cls, path: Path, password: str) -> "EncHandler":
+        """Return a handler for a new project: a new random salt and the default settings.
+        Create the project salt file with the salt and settings (project.salt)."""
+
+        salt = secrets.token_bytes(SALT_BYTES)
+        # The settings are passed on purpose, not left to __init__'s defaults: then tests can make them smaller.
+        handler = cls(password, salt, DEFAULT_ITERATIONS, DEFAULT_MEMORY_KIB, DEFAULT_LANES)
+        # Save the salt and settings to the project salt file
+        data = {
+            "salt": base64.b64encode(salt).decode("utf-8"),
+            "iterations": handler.iterations,
+            "memory_kib": handler.memory_kib,
+            "lanes": handler.lanes,
+        }
+        # Through a .tmp file, as the other saves: without this file the project can never be opened again.
+        temp_path = path.with_name(path.name + ".tmp")
+        temp_path.write_text(json.dumps(data), encoding="utf-8")
+        temp_path.replace(path)
+        return handler
 
     @classmethod
     def load(cls, path: Path, password: str) -> "EncHandler":
