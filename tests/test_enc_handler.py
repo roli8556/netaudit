@@ -143,7 +143,7 @@ def test_load_gives_the_same_key_as_the_same_password_and_salt(tmp_path: Path) -
 
 
 def test_load_missing_file_raises_file_not_found(tmp_path: Path) -> None:
-    """A missing salt file is not damage, so it stays FileNotFoundError, like a missing config.json."""
+    """A missing salt file is not damage, so it stays FileNotFoundError, like a missing config.enc."""
     with pytest.raises(FileNotFoundError):
         EncHandler.load(tmp_path / "project.salt", PASSWORD)
 

@@ -58,7 +58,7 @@ class Host:
             for command in self.available_commands:
                 if not isinstance(command, str):
                     raise ValueError(f"Available commands must be text, got {command!r}")
-        # type() is not bool, so "yes" or 1 in a hosts.json is refused instead of being taken as true
+        # type() is not bool, so "yes" or 1 in a hosts.enc is refused instead of being taken as true
         if type(self.accept_unknown_host_key) is not bool:
             raise ValueError(f"Accept unknown host key must be True or False, got {self.accept_unknown_host_key!r}")
 

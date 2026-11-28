@@ -94,7 +94,7 @@ def test_printing_a_project_hides_host_passwords(enc_handler: EncHandler) -> Non
 def test_save_writes_the_config_as_json(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A saved config contains all its fields, and none of them can be read without the key."""
     config = ProjectConfig("Västerås")
-    path = tmp_path / "config.json"
+    path = tmp_path / "config.enc"
     config.save(path, enc_handler)
     assert json.loads(read_decrypted(path, enc_handler)) == asdict(config)
     assert "Västerås".encode("utf-8") not in path.read_bytes()
@@ -102,7 +102,7 @@ def test_save_writes_the_config_as_json(tmp_path: Path, enc_handler: EncHandler)
 
 def test_save_replaces_an_existing_file(tmp_path: Path, enc_handler: EncHandler) -> None:
     """Saving again overwrites the old config and leaves no temporary file."""
-    path = tmp_path / "config.json"
+    path = tmp_path / "config.enc"
     ProjectConfig("old").save(path, enc_handler)
     ProjectConfig("new").save(path, enc_handler)
     assert json.loads(read_decrypted(path, enc_handler))["name"] == "new"
@@ -111,7 +111,7 @@ def test_save_replaces_an_existing_file(tmp_path: Path, enc_handler: EncHandler)
 
 def test_failed_save_keeps_the_old_file(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A config that can't become JSON doesn't damage the file on disk."""
-    path = tmp_path / "config.json"
+    path = tmp_path / "config.enc"
     config = ProjectConfig("office")
     config.save(path, enc_handler)
     old_content = path.read_bytes()
@@ -123,7 +123,7 @@ def test_failed_save_keeps_the_old_file(tmp_path: Path, enc_handler: EncHandler)
 
 def test_load_returns_the_saved_config(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A config is the same after saving and loading."""
-    path = tmp_path / "config.json"
+    path = tmp_path / "config.enc"
     config = ProjectConfig("office", ssh_port=2222)
     config.save(path, enc_handler)
     assert ProjectConfig.load(path, enc_handler) == config
@@ -133,7 +133,7 @@ def test_load_returns_the_saved_config(tmp_path: Path, enc_handler: EncHandler) 
 def test_save_to_missing_folder_raises(tmp_path: Path, enc_handler: EncHandler) -> None:
     """Save does not create folders."""
     with pytest.raises(FileNotFoundError):
-        ProjectConfig("office").save(tmp_path / "missing" / "config.json", enc_handler)
+        ProjectConfig("office").save(tmp_path / "missing" / "config.enc", enc_handler)
 
 
 @dataclass
@@ -165,7 +165,7 @@ def test_create_makes_the_folders_and_config(created: Project) -> None:
     """A new project has its folders and a saved config."""
     for folder in ("logs", "configs", "scans"):
         assert (created.path / folder).is_dir()
-    assert ProjectConfig.load(created.path / "config.json", created.enc_handler) == created.config
+    assert ProjectConfig.load(created.path / "config.enc", created.enc_handler) == created.config
 
 
 def test_hosts_survive_save_and_load(created: Project, host: Host) -> None:
@@ -200,9 +200,9 @@ def test_accept_unknown_host_key_survives_save_and_load(created: Project, host: 
 
 
 def test_hosts_saved_without_accept_unknown_host_key_load_as_false(created: Project) -> None:
-    """A hosts.json from before the field existed still loads, and trusts no unknown key."""
+    """A hosts.enc from before the field existed still loads, and trusts no unknown key."""
     write_encrypted(
-        created.path / "hosts.json",
+        created.path / "hosts.enc",
         '[{"ip": "192.0.2.11", "ssh_username": "auditor", "ssh_password": "fake-login"}]',
         created.enc_handler,
     )
@@ -228,8 +228,8 @@ def test_load_hosts_twice_does_not_duplicate(created: Project, host: Host) -> No
 
 def test_load_hosts_rejects_broken_json(created: Project) -> None:
     """A damaged file is an error, not an empty project."""
-    (created.path / "hosts.json").write_text("broken", encoding="utf-8")
-    with pytest.raises(ValueError, match="hosts.json is damaged"):
+    (created.path / "hosts.enc").write_text("broken", encoding="utf-8")
+    with pytest.raises(ValueError, match="hosts.enc is damaged"):
         created.load_hosts()
 
 
@@ -282,10 +282,10 @@ def test_two_projects_with_the_same_password_get_different_salts(created: Projec
 
 
 def test_load_with_the_wrong_password_raises(created: Project) -> None:
-    """A wrong password is noticed on config.json, the first file decrypted, and is not called damage there."""
+    """A wrong password is noticed on config.enc, the first file decrypted, and is not called damage there."""
     with pytest.raises(ValueError, match="Wrong password") as error:
         Project.load(created.path, "wrong-fake-password")
-    assert "config.json is damaged" not in str(error.value)
+    assert "config.enc is damaged" not in str(error.value)
 
 
 def test_load_with_the_wrong_password_writes_nothing_to_the_log(created: Project) -> None:
@@ -329,7 +329,7 @@ def test_create_does_not_overwrite_a_project(created: Project) -> None:
     """Creating where a project already exists leaves that project intact."""
     with pytest.raises(FileExistsError):
         Project.create(created.path, ProjectConfig("school"), PROJECT_PASSWORD)
-    assert ProjectConfig.load(created.path / "config.json", created.enc_handler).name == "bank"
+    assert ProjectConfig.load(created.path / "config.enc", created.enc_handler).name == "bank"
 
 
 def test_load_scans_restores_a_subclass(created: Project) -> None:
@@ -346,7 +346,7 @@ def test_scan_file_cannot_call_other_functions(
     calls = []
     monkeypatch.setattr(project_module, "helper", lambda **args: calls.append(args), raising=False)
     content = {"type": "helper", "performed_at": "2026-01-02T03:04:05"}
-    write_encrypted(created.path / "scans" / "forged.scan.json", json.dumps(content), created.enc_handler)
+    write_encrypted(created.path / "scans" / "forged.scan.enc", json.dumps(content), created.enc_handler)
     with pytest.raises(ValueError):
         created.load_scans()
     assert calls == []
@@ -363,7 +363,7 @@ def test_load_scans_twice_does_not_duplicate(created: Project) -> None:
 def test_loaded_scan_path_is_the_file_it_came_from(created: Project) -> None:
     """A scan file can't claim to be located somewhere else."""
     content = {"type": "Scan", "performed_at": "2026-01-02T03:04:05", "path": "somewhere/else"}
-    file = created.path / "scans" / "forged.scan.json"
+    file = created.path / "scans" / "forged.scan.enc"
     write_encrypted(file, json.dumps(content), created.enc_handler)
     created.load_scans()
     assert created.scans[0].path == file
@@ -380,7 +380,7 @@ def test_load_scans_returns_oldest_first(created: Project) -> None:
 
 
 def test_load_scans_ignores_other_json_files(created: Project) -> None:
-    """Only *.scan.json files are scans."""
+    """Only *.scan.enc files are scans."""
     write_encrypted(created.path / "scans" / "notes.json", "{}", created.enc_handler)
     created.load_scans()
     assert created.scans == []
@@ -389,7 +389,7 @@ def test_load_scans_ignores_other_json_files(created: Project) -> None:
 @pytest.mark.parametrize("content", ["{}", '""', "5", "null"])
 def test_load_hosts_rejects_json_that_is_not_a_list(created: Project, content: str) -> None:
     """Valid JSON of the wrong shape is an error."""
-    write_encrypted(created.path / "hosts.json", content, created.enc_handler)
+    write_encrypted(created.path / "hosts.enc", content, created.enc_handler)
     with pytest.raises(ValueError):
         created.load_hosts()
 
@@ -397,7 +397,7 @@ def test_load_hosts_rejects_json_that_is_not_a_list(created: Project, content: s
 def test_failed_load_changes_nothing(created: Project, host: Host, tmp_path: Path) -> None:
     """If any part can't be loaded, the open project is left as it was."""
     broken = Project.create(tmp_path / "school", ProjectConfig("school"), PROJECT_PASSWORD)
-    (broken.path / "hosts.json").write_text("broken", encoding="utf-8")
+    (broken.path / "hosts.enc").write_text("broken", encoding="utf-8")
     created.hosts = [host]
     with pytest.raises(ValueError):
         created = Project.load(broken.path, PROJECT_PASSWORD)
@@ -430,7 +430,7 @@ def test_load_reads_the_log_and_logs_the_load(created: Project) -> None:
 
 def test_failed_load_does_not_write_to_the_log(created: Project) -> None:
     """A project that can't be loaded isn't logged as loaded."""
-    (created.path / "hosts.json").write_text("broken", encoding="utf-8")
+    (created.path / "hosts.enc").write_text("broken", encoding="utf-8")
     with pytest.raises(ValueError):
         Project.load(created.path, PROJECT_PASSWORD)
     created.log.load(created.enc_handler)
@@ -473,7 +473,7 @@ def test_load_warns_about_other_missing_folders_without_creating_them(created: P
 
 
 def test_load_of_a_folder_that_is_not_a_project_creates_nothing(tmp_path: Path) -> None:
-    """Without config.json, load fails before it creates any folder."""
+    """Without config.enc, load fails before it creates any folder."""
     with pytest.raises(FileNotFoundError):
         Project.load(tmp_path, PROJECT_PASSWORD)
     assert list(tmp_path.iterdir()) == []
@@ -569,8 +569,8 @@ def test_invalid_created_time_raises(created: object) -> None:
 
 
 def test_loading_a_config_with_a_bad_value_raises(tmp_path: Path, enc_handler: EncHandler) -> None:
-    """A hand-edited config.json is checked when it's loaded."""
-    path = tmp_path / "config.json"
+    """A hand-edited config.enc is checked when it's loaded."""
+    path = tmp_path / "config.enc"
     ProjectConfig("office").save(path, enc_handler)
     data = json.loads(read_decrypted(path, enc_handler))
     data["ssh_port"] = 99999
@@ -580,7 +580,7 @@ def test_loading_a_config_with_a_bad_value_raises(tmp_path: Path, enc_handler: E
 
 
 def test_add_host_saves_and_logs_it(created: Project, host: Host) -> None:
-    """An added host is in memory, in hosts.json, and in the log."""
+    """An added host is in memory, in hosts.enc, and in the log."""
     created.add_host(host)
     assert created.hosts == [host]
     assert Project.load(created.path, PROJECT_PASSWORD).hosts == [host]
@@ -597,7 +597,7 @@ def test_add_host_with_an_existing_ip_raises(created: Project, host: Host) -> No
 
 
 def test_add_host_that_cant_be_saved_is_taken_out(tmp_path: Path, host: Host, enc_handler: EncHandler) -> None:
-    """If hosts.json can't be written, the host isn't kept in memory either."""
+    """If hosts.enc can't be written, the host isn't kept in memory either."""
     project = Project(tmp_path / "missing", ProjectConfig("office"), enc_handler)
     with pytest.raises(OSError):
         project.add_host(host)
@@ -605,7 +605,7 @@ def test_add_host_that_cant_be_saved_is_taken_out(tmp_path: Path, host: Host, en
 
 
 def test_remove_host_saves_logs_and_returns_it(created: Project, host: Host) -> None:
-    """A removed host is gone from memory and from hosts.json, and is returned."""
+    """A removed host is gone from memory and from hosts.enc, and is returned."""
     second = Host("192.0.2.12", "auditor", "fake-login")
     created.add_host(host)
     created.add_host(second)
@@ -624,7 +624,7 @@ def test_remove_unknown_host_raises(created: Project, host: Host) -> None:
 
 
 def test_remove_host_that_cant_be_saved_is_put_back(created: Project, host: Host) -> None:
-    """If hosts.json can't be written, the host stays, in the same place."""
+    """If hosts.enc can't be written, the host stays, in the same place."""
     second = Host("192.0.2.12", "auditor", "fake-login")
     created.add_host(host)
     created.add_host(second)
@@ -635,7 +635,7 @@ def test_remove_host_that_cant_be_saved_is_put_back(created: Project, host: Host
 
 
 def test_load_hosts_with_duplicate_ips_raises(created: Project, host: Host) -> None:
-    """A hosts.json edited to have the same IP twice doesn't load."""
+    """A hosts.enc edited to have the same IP twice doesn't load."""
     created.hosts = [host, Host("192.0.2.11", "other", "fake-other")]
     created.save_hosts()
     with pytest.raises(ValueError):
@@ -647,17 +647,17 @@ def test_load_hosts_with_duplicate_ips_raises(created: Project, host: Host) -> N
     ["not json", "[1, 2]", '{"name": "office", "colour": "red"}', '{"ssh_port": 22}', '{"name": "office", "ssh_port": 0}'],
 )
 def test_damaged_config_names_the_file(tmp_path: Path, content: str, enc_handler: EncHandler) -> None:
-    """Every kind of damage in config.json is a ValueError that says which file it is."""
-    path = tmp_path / "config.json"
+    """Every kind of damage in config.enc is a ValueError that says which file it is."""
+    path = tmp_path / "config.enc"
     write_encrypted(path, content, enc_handler)
-    with pytest.raises(ValueError, match="config.json is damaged"):
+    with pytest.raises(ValueError, match="config.enc is damaged"):
         ProjectConfig.load(path, enc_handler)
 
 
 def test_missing_config_is_still_file_not_found(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A missing file isn't damage: it stays a FileNotFoundError."""
     with pytest.raises(FileNotFoundError):
-        ProjectConfig.load(tmp_path / "config.json", enc_handler)
+        ProjectConfig.load(tmp_path / "config.enc", enc_handler)
 
 
 @pytest.mark.parametrize(
@@ -672,10 +672,10 @@ def test_missing_config_is_still_file_not_found(tmp_path: Path, enc_handler: Enc
     ],
 )
 def test_damaged_hosts_name_the_file_and_change_nothing(created: Project, host: Host, content: str) -> None:
-    """Every kind of damage in hosts.json is a ValueError naming the file, and the hosts in memory stay."""
+    """Every kind of damage in hosts.enc is a ValueError naming the file, and the hosts in memory stay."""
     created.hosts = [host]
-    write_encrypted(created.path / "hosts.json", content, created.enc_handler)
-    with pytest.raises(ValueError, match="hosts.json is damaged"):
+    write_encrypted(created.path / "hosts.enc", content, created.enc_handler)
+    with pytest.raises(ValueError, match="hosts.enc is damaged"):
         created.load_hosts()
     assert created.hosts == [host]
 
@@ -694,20 +694,20 @@ def test_damaged_hosts_name_the_file_and_change_nothing(created: Project, host: 
 )
 def test_damaged_scan_names_the_file(created: Project, content: str) -> None:
     """Every kind of damage in a scan file is a ValueError that says which file it is."""
-    write_encrypted(created.path / "scans" / "bad.scan.json", content, created.enc_handler)
-    with pytest.raises(ValueError, match="bad.scan.json is damaged"):
+    write_encrypted(created.path / "scans" / "bad.scan.enc", content, created.enc_handler)
+    with pytest.raises(ValueError, match="bad.scan.enc is damaged"):
         created.load_scans()
 
 
 def test_hosts_file_that_cant_be_decrypted_names_the_file(created: Project) -> None:
-    """Once config.json was decrypted the password is right, so a hosts.json that fails is damaged."""
-    (created.path / "hosts.json").write_text("not a token", encoding="utf-8")
-    with pytest.raises(ValueError, match="hosts.json is damaged: Wrong password, or the file is damaged"):
+    """Once config.enc was decrypted the password is right, so a hosts.enc that fails is damaged."""
+    (created.path / "hosts.enc").write_text("not a token", encoding="utf-8")
+    with pytest.raises(ValueError, match="hosts.enc is damaged: Wrong password, or the file is damaged"):
         created.load_hosts()
 
 
 def test_load_of_damaged_project_names_the_file(created: Project) -> None:
     """Project.load passes the clear error on."""
-    (created.path / "hosts.json").write_text("broken", encoding="utf-8")
-    with pytest.raises(ValueError, match="hosts.json is damaged"):
+    (created.path / "hosts.enc").write_text("broken", encoding="utf-8")
+    with pytest.raises(ValueError, match="hosts.enc is damaged"):
         Project.load(created.path, PROJECT_PASSWORD)

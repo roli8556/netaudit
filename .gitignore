@@ -231,14 +231,21 @@ __marimo__/
 # Claude Code: private instructions (personal and lab details)
 /CLAUDE.local.md
 
-# netaudit: scan results (not scans/, that would also ignore the source code)
-*.scan.json
+# netaudit: encrypted project files (config, hosts, scans) and their temporary files.
+# Not scans/, that would also ignore the source code.
+*.enc
+*.enc.tmp
 
-# netaudit: plain-text project files, until they are encrypted
+# netaudit: a project's salt and Argon2 settings. Not secret, but it belongs to a project, not to the code.
+project.salt
+project.salt.tmp
+
+# netaudit: plain-text project files from before part B. They may hold real passwords, so never commit them.
 config.json
 config.json.tmp
 hosts.json
 hosts.json.tmp
+*.scan.json
 
 # netaudit: running configs of devices, in a project folder anywhere in the repo
 configs/

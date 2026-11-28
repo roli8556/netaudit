@@ -43,7 +43,7 @@ def test_unknown_host_key_is_not_accepted_by_default() -> None:
 
 @pytest.mark.parametrize("value", ["yes", "True", 1, 0, None])
 def test_accept_unknown_host_key_must_be_a_bool(value: object) -> None:
-    """Only True and False: anything else, as from a damaged hosts.json, is refused."""
+    """Only True and False: anything else, as from a damaged hosts.enc, is refused."""
     with pytest.raises(ValueError, match="Accept unknown host key"):
         Host("192.0.2.11", "auditor", "fake-login", accept_unknown_host_key=value)  # type: ignore[arg-type]
 

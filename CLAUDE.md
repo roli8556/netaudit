@@ -87,7 +87,8 @@ Update this section in the commit of every step.
   On a new machine, `pip install -r requirements.txt` first.
 - Last finished step: B4 to B9 in one step (started by me, finished together): Project holds `enc_handler` and
   encrypts config, hosts, scans and every log line. The menu asks for the project password.
-- Next step: B10. Decide whether to rename the files to `.enc` and how .gitignore should cover them and `project.salt`.
+- Then B10: the encrypted files are named `.enc`, and .gitignore covers them and `project.salt`. Part B is done.
+- Next step: part E, recent projects (plan it first). Then the rest of the test files, if I want.
 - Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
   Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
 - Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
@@ -97,8 +98,8 @@ Update this section in the commit of every step.
   `newest_first` is a separate local variable: order isn't a filter, so clear filters keeps it.
 
 ### Git and project files
-- Project files are encrypted since part B, but still ignored by Git by name: `config.json`, `hosts.json`,
-  their `.tmp`, `*.scan.json`, `configs/`, `*.log`. `project.salt` isn't ignored yet (B10).
+- Ignored by Git: `*.enc` and `*.enc.tmp` (config, hosts, scans), `project.salt` and its `.tmp`, `configs/`, `*.log`.
+  The old plain names (`config.json`, `hosts.json`, `*.scan.json`) stay ignored: files from before part B may hold real passwords.
 
 ### Done
 - Milestone 0: project skeleton (venv, .gitignore, main.py, pytest, tests folder).
@@ -119,18 +120,18 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Add host
   - [x] Remove host
   - [x] Show log (with filters: level, category, message, number range, since)
-- [ ] B. Encryption (`netaudit/enc_handler.py`): key from the password, encrypt and decrypt
+- [x] B. Encryption (`netaudit/enc_handler.py`): key from the password, encrypt and decrypt
   - [x] B1. `cryptography` in the venv and requirements.txt
   - [x] B2. EncHandler: `__init__` (checks, key from the password), `create` (new salt), `derive_key`
   - [x] B3. `encrypt(data)` and `decrypt(token)`
   - [x] B4. `project.salt`: `create(path, password)` writes it, `load(path, password)` reads it (JSON, salt as base64)
-  - [x] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json encrypted
-  - [x] B6. hosts.json encrypted
+  - [x] B5. `Project.create(path, config, password)` and `load(path, password)`, config.enc encrypted
+  - [x] B6. hosts.enc encrypted
   - [x] B7. Scans encrypted
   - [x] B8. The log: one encrypted token per line
   - [x] B9. Menu: password twice on create (at least 12 characters), once on load, no more "not encrypted" warning.
     The xfail marker is removed: the plain-text password test passes.
-  - [ ] B10. File names (`.enc`?) and .gitignore (`project.salt`)
+  - [x] B10. Encrypted files are named `.enc`, .gitignore covers them and `project.salt`
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
@@ -151,10 +152,10 @@ Order: A, C, D (structure), then B (encryption), then E.
 
 ### A project on disk (can be anywhere)
 - `project.salt`: the salt and Argon2 settings, plain JSON (needed to make the key, not secret). Lost = project lost.
-- `config.json`: the project's own settings, encrypted.
-- `hosts.json`: the hosts, encrypted.
+- `config.enc`: the project's own settings, encrypted.
+- `hosts.enc`: the hosts, encrypted.
 - `configs/`: running configs of the devices. Not the project's settings.
-- `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.json`, encrypted, never overwritten.
+- `scans/`: one file per scan, named `<date>_<time>-<microseconds>_<class>.scan.enc`, encrypted, never overwritten.
 - `logs/project.log`: the log, one token per line, each an encrypted JSON object (ignored by Git through `*.log`).
 - Later more, for example topology.
 
@@ -162,7 +163,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - All project files are encrypted, except `project.salt`. JSON inside the encryption.
 - Only Project holds the EncHandler (decided by me). ProjectConfig, ProjectLog and Scan get it as an argument
   of the method that reads or writes, and never keep it.
-- A wrong password is found on config.json, the first file decrypted: "Wrong password, or the file is damaged",
+- A wrong password is found on config.enc, the first file decrypted: "Wrong password, or the file is damaged",
   outside the try, so it isn't called damage. Hosts and scans decrypt inside the try: the password is already
   proven right then, so a failure there is "<file> is damaged". A log line that can't be decrypted is a damaged line.
 - A wrong password writes nothing to the log: with the wrong key the entry couldn't be read back.
@@ -188,8 +189,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - Device output is parsed by a parser class (Milestone 2), not by Host. Host only checks the values it gets.
 - `__post_init__` only runs when a Host is created, not when a field is assigned later. The parser must check
   values before assigning them, with the same functions (like `is_valid_hostname`) so each rule exists once.
-- `add_host` and `remove_host` save hosts.json right away. If saving fails, the change is undone in memory.
-  No two hosts share an IP, also checked when loading hosts.json.
+- `add_host` and `remove_host` save hosts.enc right away. If saving fails, the change is undone in memory.
+  No two hosts share an IP, also checked when loading hosts.enc.
 - ProjectConfig: name 1-64 printable characters (any language), port 1-65535, timeout 1-300 seconds.
 - Usernames and passwords can't contain control characters: a line break in a password typed into the CLI
   could send a second command. Error messages never show a password.
@@ -221,10 +222,10 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `project.issues`: dict from ProjectIssue (a fixed Enum) to details, for problems found by load that the menu
   must handle. The log is the history, `issues` the current state. Each fix removes its issue.
   Added early on purpose (decided by me), with one kind so far. Damaged scans may become the next kind.
-- Every kind of damage in config.json, hosts.json or a scan file is a ValueError "<file> is damaged: ...",
-  so the menu only has to catch ValueError and OSError. A missing config.json stays FileNotFoundError.
+- Every kind of damage in config.enc, hosts.enc or a scan file is a ValueError "<file> is damaged: ...",
+  so the menu only has to catch ValueError and OSError. A missing config.enc stays FileNotFoundError.
 - Never log secrets. JSON lines escape line breaks, so device text can't fake log entries.
-- Host checks its data in `__post_init__`, so a bad Host can't exist, from the menu or from hosts.json.
+- Host checks its data in `__post_init__`, so a bad Host can't exist, from the menu or from hosts.enc.
   IPv4 only for now (decided by me). Type checks come before value checks.
 - `repr=False` only protects printing. `asdict()` includes passwords, so never print or log its result.
 
@@ -242,7 +243,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 ### Notes on encryption
 - Gaps in log numbers mean deleted lines. A later check could report them as a SECURITY warning.
 - Files are not bound to their path (decided by me): a token copied over another file of the project decrypts fine.
-  Swapping config.json and hosts.json just fails as damaged, but two swapped scan files would not be noticed.
+  Swapping config.enc and hosts.enc just fails as damaged, but two swapped scan files would not be noticed.
 - An older copy of a file put back in its place isn't noticed either.
 
 ### Notes for Milestone 2

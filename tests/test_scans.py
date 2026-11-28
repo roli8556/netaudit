@@ -62,7 +62,7 @@ def test_file_name_has_time_and_type(tmp_path: Path, enc_handler: EncHandler) ->
     """The name sorts by time and ends in what .gitignore matches."""
     when = datetime(2026, 1, 2, 3, 4, 5, 6)
     path = FakeScan("192.0.2.11", [], performed_at=when).write(tmp_path, enc_handler)
-    assert path.name == "2026-01-02_03-04-05-000006_FakeScan.scan.json"
+    assert path.name == "2026-01-02_03-04-05-000006_FakeScan.scan.enc"
 
 
 def test_write_creates_the_scans_folder(tmp_path: Path, enc_handler: EncHandler) -> None:
@@ -103,5 +103,5 @@ def test_write_remembers_the_path(tmp_path: Path, enc_handler: EncHandler) -> No
 
 def test_scan_with_a_path_can_be_written(tmp_path: Path, enc_handler: EncHandler) -> None:
     """A scan that knows its path can still be written."""
-    scan = Scan(path=tmp_path / "earlier.scan.json")
+    scan = Scan(path=tmp_path / "earlier.scan.enc")
     assert scan.write(tmp_path, enc_handler).is_file()

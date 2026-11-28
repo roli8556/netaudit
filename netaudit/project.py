@@ -101,7 +101,7 @@ class Project:
 
     def save_hosts(self) -> None:
         """Save the hosts, including their passwords, to an encrypted JSON file in the project directory."""
-        hosts_path = self.path / "hosts.json"
+        hosts_path = self.path / "hosts.enc"
         text = json.dumps([asdict(host) for host in self.hosts], indent=4)
         token = self.enc_handler.encrypt(text.encode("utf-8"))
         temp_path = hosts_path.with_name(hosts_path.name + ".tmp")
@@ -112,11 +112,11 @@ class Project:
         """Load the hosts from an encrypted JSON file in the project directory.
 
         Raises ValueError naming the file if it is damaged, and then self.hosts is unchanged."""
-        hosts_path = self.path / "hosts.json"
+        hosts_path = self.path / "hosts.enc"
         if hosts_path.exists():
             token = hosts_path.read_bytes()
             try:
-                # Inside the try: config.json was decrypted first, so the password is right and this file is damaged.
+                # Inside the try: config.enc was decrypted first, so the password is right and this file is damaged.
                 data = json.loads(self.enc_handler.decrypt(token))
                 if not isinstance(data, list):
                     raise ValueError("it does not contain a list of hosts")
@@ -170,7 +170,7 @@ class Project:
         scans_path = self.path / "scans"
         scans = []
         # sorted by file name means oldest first, as the name starts with the time
-        for scan_file in sorted(scans_path.glob("*.scan.json")):
+        for scan_file in sorted(scans_path.glob("*.scan.enc")):
             token = scan_file.read_bytes()
             try:
                 data = json.loads(self.enc_handler.decrypt(token))  # inside the try, as in load_hosts
@@ -197,7 +197,7 @@ class Project:
         for folder in PROJECT_FOLDERS:
             (path / folder).mkdir()
         enc_handler = EncHandler.create(path / SALT_FILE, password)
-        config.save(path / "config.json", enc_handler)
+        config.save(path / "config.enc", enc_handler)
         project = cls(path, config, enc_handler)
         project.log.write(LogEntry("Project created", LogCategory.PROJECT), project.enc_handler)
         return project
@@ -207,11 +207,11 @@ class Project:
         """Return the project stored in path, with its configuration and any other data, decrypted with password.
 
         If any part can't be loaded this raises, and no project is returned. A wrong password is a ValueError
-        "Wrong password, or the file is damaged", from config.json.
+        "Wrong password, or the file is damaged", from config.enc.
         A missing logs folder is created. Every missing folder is logged as a warning,
         and the others are added to project.issues."""
         enc_handler = EncHandler.load(path / SALT_FILE, password)
-        config = ProjectConfig.load(path / "config.json", enc_handler)
+        config = ProjectConfig.load(path / "config.enc", enc_handler)
         project = cls(path, config, enc_handler)
         project.load_hosts()
         project.load_scans()

@@ -376,7 +376,7 @@ def test_add_host_saves_it(
 def test_add_host_with_a_bad_answer_adds_nothing(
     monkeypatch: pytest.MonkeyPatch, saved: Project, answers: list[str], password: str, message: str
 ) -> None:
-    """A bad answer raises a clear ValueError, and the project and hosts.json keep only the saved host."""
+    """A bad answer raises a clear ValueError, and the project and hosts.enc keep only the saved host."""
     fake_input(monkeypatch, answers)
     fake_getpass(monkeypatch, [password, ""])
     menu = Menu()
@@ -455,7 +455,7 @@ def two_hosts(saved: Project) -> Menu:
 def test_remove_host_by_number(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], two_hosts: Menu
 ) -> None:
-    """Number 2 removes the second host in the list, after y, and hosts.json no longer has it."""
+    """Number 2 removes the second host in the list, after y, and hosts.enc no longer has it."""
     fake_input(monkeypatch, ["2", "y"])
     two_hosts.remove_host_menu()
     assert "Removed host 192.0.2.12" in capsys.readouterr().out
@@ -542,7 +542,7 @@ def test_load_missing_folder_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 
 
 def test_load_folder_that_is_not_a_project_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """A folder without config.json isn't a project, and nothing is created in it."""
+    """A folder without config.enc isn't a project, and nothing is created in it."""
     fake_input(monkeypatch, [str(tmp_path)])
     with pytest.raises(ValueError, match="is not a netaudit project"):
         Menu().load_project_menu()
@@ -552,13 +552,13 @@ def test_load_folder_that_is_not_a_project_raises(monkeypatch: pytest.MonkeyPatc
 def test_load_damaged_project_shows_the_file_and_returns(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], saved: Project
 ) -> None:
-    """A damaged hosts.json shows an error naming the file, then the start menu, with no project open."""
-    (saved.path / "hosts.json").write_text("broken", encoding="utf-8")
+    """A damaged hosts.enc shows an error naming the file, then the start menu, with no project open."""
+    (saved.path / "hosts.enc").write_text("broken", encoding="utf-8")
     fake_input(monkeypatch, ["2", str(saved.path), "q"])
     menu = Menu()
     menu.run()
     captured = capsys.readouterr()
-    assert "hosts.json is damaged" in captured.err
+    assert "hosts.enc is damaged" in captured.err
     assert captured.out.count("Start menu") == 2
     assert menu.project is None
 

@@ -267,7 +267,7 @@ class Menu:
 
         Enter at the enable password means the host has none (None).
         Raises ValueError for a bad answer or an IP that is already in the project (Host and
-        add_host check them), and OSError if hosts.json can't be saved. Nothing is added then."""
+        add_host check them), and OSError if hosts.enc can't be saved. Nothing is added then."""
         print()
         print("Add host")
         ip = self.ask("IP address: ")
@@ -288,7 +288,7 @@ class Menu:
         """Show the hosts, ask for the number of one, confirm, and remove it from the open project.
 
         q goes back and Enter or n at the confirmation keeps the host. Raises ValueError for a
-        number that isn't in the list or an answer that isn't y or n, and OSError if hosts.json
+        number that isn't in the list or an answer that isn't y or n, and OSError if hosts.enc
         can't be saved. Nothing is removed then."""
         hosts = self.project.hosts
         if not hosts:
@@ -322,8 +322,8 @@ class Menu:
         path = Path(self.ask("Project folder: ")).expanduser()
         if not path.is_dir():
             raise ValueError(f"{path} is not a folder")
-        if not (path / "config.json").is_file():
-            raise ValueError(f"{path} is not a netaudit project (it has no config.json)")
+        if not (path / "config.enc").is_file():
+            raise ValueError(f"{path} is not a netaudit project (it has no config.enc)")
         password = getpass("Project password: ")
         project = Project.load(path, password)
         print(f"Loaded project {project.config.name!r} ({len(project.hosts)} hosts)")

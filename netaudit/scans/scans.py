@@ -26,7 +26,7 @@ class Scan:
         token = enc_handler.encrypt(text.encode("utf-8"))
 
         folder.mkdir(exist_ok=True)
-        path = folder / f"{self.performed_at:%Y-%m-%d_%H-%M-%S-%f}_{scan_type}.scan.json"
+        path = folder / f"{self.performed_at:%Y-%m-%d_%H-%M-%S-%f}_{scan_type}.scan.enc"
         with path.open("xb") as file:  # x: never overwrite, b: bytes, as a token is bytes
             file.write(token)
         self.path = path
