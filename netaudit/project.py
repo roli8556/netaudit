@@ -99,7 +99,6 @@ class Project:
         temp_path = hosts_path.with_name(hosts_path.name + ".tmp")
         temp_path.write_text(text, encoding="utf-8")
         temp_path.replace(hosts_path)
-        self.log.write(LogEntry(f"Saved {len(self.hosts)} hosts", LogCategory.PROJECT))
         #TO add: encrypt before writing (part B), this is plain text for now
 
     def load_hosts(self) -> None:
