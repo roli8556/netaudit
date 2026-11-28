@@ -83,10 +83,10 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 383 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: B1, `cryptography` installed in the venv and pinned in requirements.txt
-  (run `pip install -r requirements.txt` on a new machine). It has both Argon2id and Fernet, so no `argon2-cffi`.
-- Next step: B2, `derive_key(password, salt)` and `new_salt()` in a new `netaudit/encryption.py`.
+  Expected: 408 passed, 1 xfailed (the plain-text password test, until part B).
+  On a new machine, `pip install -r requirements.txt` first.
+- Last finished step: B2, `EncHandler` in `netaudit/enc_handler.py`: `__init__`, `create` and `derive_key`.
+- Next step: B3, `encrypt(data, name)` and `decrypt(token, name)` on EncHandler.
 - Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
   Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
 - Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
@@ -120,11 +120,11 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Add host
   - [x] Remove host
   - [x] Show log (with filters: level, category, message, number range, since)
-- [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
+- [ ] B. Encryption (`netaudit/enc_handler.py`): key from the password, encrypt and decrypt
   - [x] B1. `cryptography` in the venv and requirements.txt
-  - [ ] B2. `derive_key(password, salt)` and `new_salt()`
-  - [ ] B3. `Cipher`: holds the key, `encrypt(data, name)` and `decrypt(token, name)`, the file name inside the data
-  - [ ] B4. `project.salt`: salt and Argon2 settings as JSON, written on create, read on load
+  - [x] B2. EncHandler: `__init__` (checks, key from the password), `create` (new salt), `derive_key`
+  - [ ] B3. `encrypt(data, name)` and `decrypt(token, name)`, the file name inside the data
+  - [ ] B4. `save_settings` and `load`: `project.salt`, salt and Argon2 settings as JSON, written on create, read on load
   - [ ] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json becomes config.enc
   - [ ] B6. hosts.json becomes hosts.enc
   - [ ] B7. Scans become `.scan.enc`
@@ -143,6 +143,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 - `netaudit/scans/scans.py`: Scan, the base class of all scans, and SCAN_TYPES.
 - `netaudit/log.py`: LogLevel, LogCategory, LogEntry (one event), LogFilter (what the log menu looks for) and ProjectLog (all entries, in memory and file,
   `find` to filter them, `sort_entries` to sort any list of them).
+- `netaudit/enc_handler.py`: EncHandler, one project's encryption. Makes the key from the password with Argon2id
+  and keeps a Fernet object, the salt and the settings, never the password. Will be `project.enc_handler` (B5).
 
 ### A project on disk (can be anywhere)
 - `config.json`: the project's own settings.
