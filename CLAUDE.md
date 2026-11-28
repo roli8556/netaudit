@@ -83,9 +83,9 @@ Update this section in the commit of every step.
 ### Start here next session
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
-  Expected: 443 passed, 1 xfailed (the plain-text password test, until part B).
+  Expected: 437 passed, 1 xfailed (the plain-text password test, until part B).
   On a new machine, `pip install -r requirements.txt` first.
-- Last finished step: B3, `encrypt(data, name)` and `decrypt(token, name)`. Before that, `EncHandler.load` (B4, first half).
+- Last finished step: B3, `encrypt(data)` and `decrypt(token)`, without the file name inside (decided by me). Before that, `EncHandler.load` (B4, first half).
 - Next step: `save_settings` (the rest of B4), writing `project.salt` in the format `load` reads.
 - Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
   Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
@@ -123,7 +123,7 @@ Order: A, C, D (structure), then B (encryption), then E.
 - [ ] B. Encryption (`netaudit/enc_handler.py`): key from the password, encrypt and decrypt
   - [x] B1. `cryptography` in the venv and requirements.txt
   - [x] B2. EncHandler: `__init__` (checks, key from the password), `create` (new salt), `derive_key`
-  - [x] B3. `encrypt(data, name)` and `decrypt(token, name)`, the file name inside the data
+  - [x] B3. `encrypt(data)` and `decrypt(token)`
   - [ ] B4. `save_settings` and `load` (load done): `project.salt`, salt and Argon2 settings as JSON, written on create, read on load
   - [ ] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json becomes config.enc
   - [ ] B6. hosts.json becomes hosts.enc
@@ -229,7 +229,8 @@ Order: A, C, D (structure), then B (encryption), then E.
 
 ### Notes for part B
 - Gaps in log numbers mean deleted lines. A later check could report them as a SECURITY warning.
-- Bind each encrypted file to its path, as Fernet can't detect two swapped files.
+- Files are not bound to their path (decided by me): a token copied over another file of the project decrypts fine.
+  Swapping config.enc and hosts.enc just fails as damaged, but two swapped scan files would not be noticed.
 - A plain `project.salt` file was proposed for the salt.
 - Ignore `*.enc` and `*.enc.tmp` in Git. Remove the xfail marker when the plain-text test passes.
 
