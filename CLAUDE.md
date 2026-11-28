@@ -84,10 +84,12 @@ Update this section in the commit of every step.
 - Branch: `feature/project-model`. Milestone 1 is not merged to `main`.
 - Activate the venv (`.\.venv\Scripts\Activate.ps1`), then run `python -m pytest`.
   Expected: 383 passed, 1 xfailed (the plain-text password test, until part B).
-- Last finished step: log filters, `6. Since` (Enter for any, shown without the T). Part D, the menu, is done.
-- Next step: go through some of the test files together (tests/test_*.py), for me to learn how they work.
-  After that: part B, encryption (plan it first).
-  Then 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
+- Last finished step: B1, `cryptography` installed in the venv and pinned in requirements.txt
+  (run `pip install -r requirements.txt` on a new machine). It has both Argon2id and Fernet, so no `argon2-cffi`.
+- Next step: B2, `derive_key(password, salt)` and `new_salt()` in a new `netaudit/encryption.py`.
+- Went through tests together: test_main.py, test_host.py, fake_input and the first tests in test_menu.py.
+  Not yet: test_scans.py, test_log.py, test_project.py, the rest of test_menu.py.
+- Log menu, later: 3 category, 4 search text, 5 order (newest first), 6 clear filters. Menu choices for since and number range: later.
   The filters are a local `LogFilter` in `show_log_menu`, so they reset each time it opens (decided by me).
   When a filter is set, `find` runs at the top of the loop for the match count, and Show uses that list.
   With no filter, Show uses the whole log. `if filters:` uses `LogFilter.__bool__` (True if any field isn't None).
@@ -119,6 +121,16 @@ Order: A, C, D (structure), then B (encryption), then E.
   - [x] Remove host
   - [x] Show log (with filters: level, category, message, number range, since)
 - [ ] B. Encryption (`netaudit/encryption.py`, doesn't exist yet): key from the password, encrypt and decrypt
+  - [x] B1. `cryptography` in the venv and requirements.txt
+  - [ ] B2. `derive_key(password, salt)` and `new_salt()`
+  - [ ] B3. `Cipher`: holds the key, `encrypt(data, name)` and `decrypt(token, name)`, the file name inside the data
+  - [ ] B4. `project.salt`: salt and Argon2 settings as JSON, written on create, read on load
+  - [ ] B5. `Project.create(path, config, password)` and `load(path, password)`, config.json becomes config.enc
+  - [ ] B6. hosts.json becomes hosts.enc
+  - [ ] B7. Scans become `.scan.enc`
+  - [ ] B8. The log: one encrypted token per line
+  - [ ] B9. Menu: password twice on create (at least 12 characters), once on load, no more "not encrypted" warning
+  - [ ] B10. .gitignore `*.enc` and `*.enc.tmp`, remove the xfail marker
 - [ ] E. Recent projects: remember paths, pick one when loading
 
 ### The code today
@@ -143,6 +155,9 @@ Order: A, C, D (structure), then B (encryption), then E.
 ### Decided
 - All project files will be encrypted. JSON for most of them, inside the encryption.
 - Key from the password: Argon2id. Encryption: Fernet. One salt per project.
+- Argon2id settings: RFC 9106's low-memory choice (3 passes, 64 MiB, 4 lanes). Tests use tiny settings to stay fast.
+  `project.salt` stores the settings next to the salt (decided by me), so raising them later doesn't lock out old projects.
+- Plain-JSON projects from before part B are not converted (decided by me): create a new project instead.
 - Passwords: at least 12 characters, no recovery. Keep the key in memory, never the project password.
 - Only the menu uses input() and print(). Project never asks the user anything.
 - Menu is a class (decided by me): `self.project` is the open project, one method per menu and action.

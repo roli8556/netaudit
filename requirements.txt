@@ -7,3 +7,10 @@ iniconfig==2.3.1
 packaging==26.3
 pluggy==1.7.0
 Pygments==2.21.0
+
+# Encryption of project files: Argon2id (key from the password) and Fernet (encrypt and decrypt)
+cryptography==50.0.2
+
+# Needed by cryptography
+cffi==2.1.1
+pycparser==3.12
