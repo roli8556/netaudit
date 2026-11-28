@@ -1,5 +1,9 @@
 """Tests for netaudit/enc_handler.py."""
 
+import base64
+import json
+from pathlib import Path
+
 import pytest
 from cryptography.fernet import Fernet
 
@@ -94,3 +98,73 @@ def test_invalid_setting_raises(setting: str, value: object) -> None:
     settings = {**FAST, setting: value}
     with pytest.raises(ValueError, match="Argon2"):
         EncHandler(PASSWORD, SALT, **settings)
+
+
+def write_salt_file(folder: Path, **changes: object) -> Path:
+    """Write a valid project.salt with the fast settings, with some values changed, and return its path."""
+    data = {"salt": base64.b64encode(SALT).decode("ascii"), **FAST, **changes}
+    path = folder / "project.salt"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_load_reads_salt_and_settings(tmp_path: Path) -> None:
+    """The handler gets the salt and settings from the file."""
+    handler = EncHandler.load(write_salt_file(tmp_path), PASSWORD)
+    assert handler.salt == SALT
+    assert (handler.iterations, handler.memory_kib, handler.lanes) == (1, 8, 1)
+
+
+def test_load_gives_the_same_key_as_the_same_password_and_salt(tmp_path: Path) -> None:
+    """What was encrypted with the key from this password and salt can be decrypted after load."""
+    token = Fernet(EncHandler.derive_key(PASSWORD, SALT, **FAST)).encrypt(b"hello")
+    handler = EncHandler.load(write_salt_file(tmp_path), PASSWORD)
+    assert handler._fernet.decrypt(token) == b"hello"  # through encrypt and decrypt once they exist (B3)
+
+
+def test_load_missing_file_raises_file_not_found(tmp_path: Path) -> None:
+    """A missing salt file is not damage, so it stays FileNotFoundError, like a missing config.json."""
+    with pytest.raises(FileNotFoundError):
+        EncHandler.load(tmp_path / "project.salt", PASSWORD)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",  # empty
+        "not json",
+        "[1, 2]",  # a list, not an object
+        '{"iterations": 1, "memory_kib": 8, "lanes": 1}',  # no salt
+        '{"salt": "MDEyMzQ1Njc4OWFiY2RlZg==", "memory_kib": 8, "lanes": 1}',  # no iterations
+        '{"salt": "not base64!", "iterations": 1, "memory_kib": 8, "lanes": 1}',
+        '{"salt": 5, "iterations": 1, "memory_kib": 8, "lanes": 1}',  # salt not text
+    ],
+)
+def test_load_damaged_file_raises_naming_the_file(tmp_path: Path, text: str) -> None:
+    """Every kind of damage is a ValueError that names the file."""
+    path = tmp_path / "project.salt"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="project.salt is damaged"):
+        EncHandler.load(path, PASSWORD)
+
+
+@pytest.mark.parametrize(
+    "changes, message",
+    [
+        ({"salt": base64.b64encode(b"short").decode("ascii")}, "Salt"),
+        ({"iterations": 0}, "Argon2 iterations"),
+        ({"lanes": "1"}, "Argon2 lanes"),
+        ({"memory_kib": 10**12}, "Argon2 memory"),  # a damaged file must not ask for a terabyte
+    ],
+)
+def test_load_refuses_bad_values_from_the_file(tmp_path: Path, changes: dict[str, object], message: str) -> None:
+    """Values that are readable but wrong are refused by the same checks as in the constructor."""
+    with pytest.raises(ValueError, match=message):
+        EncHandler.load(write_salt_file(tmp_path, **changes), PASSWORD)
+
+
+def test_load_empty_password_is_not_reported_as_damage(tmp_path: Path) -> None:
+    """The file is fine, so the error is about the password."""
+    with pytest.raises(ValueError, match="Password") as error:
+        EncHandler.load(write_salt_file(tmp_path), "")
+    assert "damaged" not in str(error.value)

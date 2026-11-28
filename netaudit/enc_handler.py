@@ -1,7 +1,9 @@
 """Encryption of project files: a key made from the project password, and encrypting and decrypting with it."""
 
 import base64
+import json
 import secrets
+from pathlib import Path
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
@@ -41,6 +43,28 @@ class EncHandler:
     def create(cls, password: str) -> "EncHandler":
         """Return a handler for a new project: a new random salt and the default settings."""
         return cls(password, secrets.token_bytes(SALT_BYTES))
+
+    @classmethod
+    def load(cls, path: Path, password: str) -> "EncHandler":
+        """Return a handler for an existing project, with the salt and Argon2 settings from its salt file at path.
+
+        The file is JSON: {"salt": "<base64>", "iterations": 3, "memory_kib": 65536, "lanes": 4}.
+        Raises ValueError naming the file if it is damaged, and FileNotFoundError if it is missing.
+        A wrong password is not noticed here: there is nothing to compare it with until a file is decrypted (B3)."""
+        text = path.read_text(encoding="utf-8")
+        try:
+            data = json.loads(text)
+            if not isinstance(data, dict):
+                raise ValueError("it does not contain a salt and settings")
+            salt = base64.b64decode(data["salt"], validate=True)  # JSON can't hold bytes, so the salt is base64 text
+            iterations = data["iterations"]
+            memory_kib = data["memory_kib"]
+            lanes = data["lanes"]
+        except (ValueError, KeyError, TypeError) as error:  # JSONDecodeError and bad base64 are ValueErrors
+            raise ValueError(f"{path} is damaged: {error}") from error
+        # Outside the try, so an empty password isn't reported as a damaged file.
+        # A salt or setting out of range is refused by derive_key, with a message naming the setting.
+        return cls(password, salt, iterations, memory_kib, lanes)
 
     @staticmethod
     def derive_key(password: str, salt: bytes, iterations: int, memory_kib: int, lanes: int) -> bytes:
